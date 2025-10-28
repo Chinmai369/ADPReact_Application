@@ -1,5 +1,6 @@
 import AdminDashboard from "./components/AdminDashboard";
 import CommissionerDashboard from "./components/CommissionerDashboard";
+import EEPHDashboard from "./components/EEPHDashboard";
 import Login from "./components/Login";
 import React, { useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
@@ -47,6 +48,22 @@ function App() {
             )
           }
         />
+              <Route
+                  path="/eeph"
+                  element={
+                    user?.role === "eeph" ? (
+                      <EEPHDashboard
+                        user={user}
+                        logout={logout}
+                        forwardedSubmissions={forwardedSubmissions}
+                        setForwardedSubmissions={setForwardedSubmissions}
+            />
+    ) : (
+      <Navigate to="/" replace />
+    )
+  }
+/>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

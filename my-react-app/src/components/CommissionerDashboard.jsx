@@ -39,10 +39,9 @@ export default function CommissionerDashboard({
   const urlCache = useRef([]);
 
   const sectionMap = {
-    "Public Works": ["Roads", "Drainage", "Parks"],
-    "Urban Development": ["Planning", "Slum Redev", "Infrastructure"],
-    Health: ["Hospitals", "Vaccination", "Sanitation"],
-    Education: ["Schools", "Higher Ed", "Adult Ed"],
+    
+    Administration:["EEPH","SEPH","ENCPH"]
+    
   };
 
   // --- Update lists ---

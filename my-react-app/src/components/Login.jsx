@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 const CREDENTIALS = {
   admin: { username: "admin", password: "admin123", role: "admin" },
   commissioner: { username: "commissioner", password: "comm123", role: "commissioner" },
+  eeph: { username: "eeph", password: "eeph123", role: "eeph" },
 };
 
 export default function Login({ onLogin }) {
@@ -22,8 +23,11 @@ export default function Login({ onLogin }) {
     ) {
       onLogin({ role: "commissioner", username });
       navigate("/commissioner");
+    } else if (username === CREDENTIALS.eeph.username && password === CREDENTIALS.eeph.password) {
+      onLogin({ role: "eeph", username });
+      navigate("/eeph");
     } else {
-      setErr("Invalid credentials. Try admin/admin123 or commissioner/comm123");
+      setErr("Invalid credentials. Try admin/admin123, commissioner/comm123, or eeph/eeph123");
     }
   };
 
