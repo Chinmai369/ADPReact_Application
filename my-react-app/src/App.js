@@ -2,12 +2,60 @@ import AdminDashboard from "./components/AdminDashboard";
 import CommissionerDashboard from "./components/CommissionerDashboard";
 import EEPHDashboard from "./components/EEPHDashboard";
 import Login from "./components/Login";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+// localStorage key for persisted submissions
+const STORAGE_KEY = "forwardedSubmissions";
+
 function App() {
-  // Submissions forwarded by admin and stored for commissioner review
-  const [forwardedSubmissions, setForwardedSubmissions] = useState([]);
+  // Load submissions from localStorage on mount
+  const [forwardedSubmissions, setForwardedSubmissions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      console.log("🔌 App.js loading from localStorage:", saved ? "found" : "empty");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log("✅ Loaded submissions from localStorage:", parsed.length);
+        // Handle File objects - they can't be serialized, so we'll handle them separately
+        // For now, we'll parse what we can
+        return parsed || [];
+      }
+    } catch (error) {
+      console.error("❌ Error loading submissions from localStorage:", error);
+    }
+    console.log("📝 Initializing with empty array");
+    return [];
+  });
+
+  // Save to localStorage whenever forwardedSubmissions changes
+  useEffect(() => {
+    try {
+      // Create a serializable copy (exclude File objects for localStorage)
+      const serializable = forwardedSubmissions.map((sub) => {
+        const copy = { ...sub };
+        // Remove File objects as they can't be serialized
+        // We'll need to handle file persistence separately if needed
+        delete copy.workImage;
+        delete copy.detailedReport;
+        delete copy.committeeReport;
+        delete copy.councilResolution;
+        return copy;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+      console.log("💾 Saved submissions to localStorage:", serializable.length);
+    } catch (error) {
+      console.error("Error saving submissions to localStorage:", error);
+    }
+  }, [forwardedSubmissions]);
+
+  // Wrapper for setForwardedSubmissions that handles serialization
+  const updateForwardedSubmissions = (updater) => {
+    setForwardedSubmissions((prev) => {
+      const newValue = typeof updater === "function" ? updater(prev) : updater;
+      return newValue;
+    });
+  };
 
   // Minimal auth state for routing
   const [user, setUser] = useState(null); // { role: 'admin'|'commissioner', username }
@@ -26,7 +74,7 @@ function App() {
                 user={user}
                 logout={logout}
                 forwardedSubmissions={forwardedSubmissions}
-                setForwardedSubmissions={setForwardedSubmissions}
+                setForwardedSubmissions={updateForwardedSubmissions}
               />
             ) : (
               <Navigate to="/" replace />
@@ -41,7 +89,7 @@ function App() {
                 user={user}
                 logout={logout}
                 forwardedSubmissions={forwardedSubmissions}
-                setForwardedSubmissions={setForwardedSubmissions}
+                setForwardedSubmissions={updateForwardedSubmissions}
               />
             ) : (
               <Navigate to="/" replace />
@@ -56,7 +104,7 @@ function App() {
                         user={user}
                         logout={logout}
                         forwardedSubmissions={forwardedSubmissions}
-                        setForwardedSubmissions={setForwardedSubmissions}
+                        setForwardedSubmissions={updateForwardedSubmissions}
             />
     ) : (
       <Navigate to="/" replace />

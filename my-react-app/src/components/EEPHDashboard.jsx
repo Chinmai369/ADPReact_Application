@@ -42,31 +42,91 @@ export default function EEPHDashboard({
     "SEPH Department": ["Water Supply", "Drainage", "Roads"],
   };
 
-  // --- Update lists ---
+  // ✅ --- Updated useEffect: show only Commissioner → EEPH forwarded works ---
   useEffect(() => {
-    setPendingList(
-      forwardedSubmissions.filter(
-        (s) =>
-          !["EEPH Approved", "EEPH Rejected", "Forwarded to SEPH"].includes(
-            s.status
-          )
-      )
+    console.log("🔍 EEPHDashboard useEffect triggered");
+    console.log("📦 Total forwardedSubmissions:", forwardedSubmissions.length);
+    console.log("📋 All submissions:", forwardedSubmissions);
+    
+    // Check localStorage directly
+    const stored = localStorage.getItem("forwardedSubmissions");
+    console.log("💾 localStorage data:", stored ? JSON.parse(stored) : "empty");
+    console.log("💾 localStorage raw:", stored);
+    
+    const pending = forwardedSubmissions.filter(
+      (s) => {
+        const status = (s.status || "").trim();
+        const section = (s.forwardedTo?.section || "").trim();
+        
+        console.log(`  Task ${s.id || 'no-id'}: status="${status}", section="${section}", forwardedTo=`, s.forwardedTo);
+        
+        // Exclude already processed tasks
+        const isProcessed = ["EEPH Approved", "EEPH Rejected"].includes(status) ||
+                           status.toLowerCase().includes("forwarded to seph");
+        if (isProcessed) {
+          console.log(`    ❌ Excluded (processed): ${status}`);
+          return false;
+        }
+        
+        // Primary check: Status contains "Forwarded to EEPH" (case-insensitive)
+        const statusLower = status.toLowerCase();
+        if (statusLower.includes("forwarded to eeph")) {
+          console.log(`    ✅ Matched by status: "${status}"`);
+          return true;
+        }
+        
+        // Secondary check: section field is "EEPH" (case-insensitive)
+        const sectionLower = section.toLowerCase();
+        if (sectionLower === "eeph") {
+          console.log(`    ✅ Matched by section: "${section}"`);
+          return true;
+        }
+        
+        // Tertiary check: Status starts with "Forwarded to" AND section is EEPH
+        if (statusLower.startsWith("forwarded to") && sectionLower === "eeph") {
+          console.log(`    ✅ Matched by status + section: "${status}" + "${section}"`);
+          return true;
+        }
+        
+        console.log(`    ❌ Not matched`);
+        return false;
+      }
     );
-    setApprovedList(
-      forwardedSubmissions.filter((s) => s.status === "EEPH Approved")
+
+    console.log("✅ Pending list count:", pending.length);
+    console.log("✅ Pending tasks:", pending);
+
+    const approved = forwardedSubmissions.filter(
+      (s) => s.status === "EEPH Approved"
     );
-    setForwardedList(
-      forwardedSubmissions.filter((s) => s.status === "Forwarded to SEPH")
+
+    const forwarded = forwardedSubmissions.filter(
+      (s) => {
+        const status = s.status || "";
+        const section = s.forwardedTo?.section || "";
+        return (
+          status.includes("Forwarded to SEPH") ||
+          status.toLowerCase().includes("forwarded to seph") ||
+          section.toLowerCase() === "seph"
+        );
+      }
     );
-    setRejectedList(
-      forwardedSubmissions.filter((s) => s.status === "EEPH Rejected")
+
+    const rejected = forwardedSubmissions.filter(
+      (s) => s.status === "EEPH Rejected"
     );
+
+    setPendingList(pending);
+    setApprovedList(approved);
+    setForwardedList(forwarded);
+    setRejectedList(rejected);
   }, [forwardedSubmissions]);
 
-  // cleanup object URLs
+  // Cleanup object URLs safely
   useEffect(() => {
+    const cache = urlCache.current;
     return () => {
-      urlCache.current.forEach((u) => URL.revokeObjectURL(u));
+      cache.forEach((u) => URL.revokeObjectURL(u));
     };
   }, []);
 
@@ -132,6 +192,7 @@ export default function EEPHDashboard({
   const forwardApprovedToDept = () => {
     if (!dept || !section || !previewSubmission)
       return alert("Select department and section");
+
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
         f.id === previewSubmission.id
@@ -301,7 +362,7 @@ export default function EEPHDashboard({
           {showForwardPanel && previewSubmission && (
             <div className="bg-white border rounded-xl shadow p-5 mt-6">
               <h4 className="font-semibold mb-3">
-                Forward Approved Work to SEPH
+                Forward Approved Work to Department
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -360,7 +421,7 @@ export default function EEPHDashboard({
           {/* Rejected Table */}
           {rejectedList.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Rejected Works</h4>
+              <h4 className="font-semibold mb-2 text-sm">Rejected Tasks</h4>
               <div className="overflow-auto max-h-48">
                 <table className="w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
@@ -374,7 +435,6 @@ export default function EEPHDashboard({
                       <th className="p-2 w-32">Status</th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {rejectedList.map((s, i) => (
                       <tr key={s.id} className="border-b">
@@ -384,7 +444,7 @@ export default function EEPHDashboard({
                         <td className="p-2">{fmtINR(s.cost)}</td>
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
-                        <td className="p-2 text-red-700">Rejected</td>
+                        <td className="p-2 text-red-700">EEPH Rejected</td>
                       </tr>
                     ))}
                   </tbody>
@@ -396,7 +456,7 @@ export default function EEPHDashboard({
           {/* Forwarded Table */}
           {forwardedList.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Forwarded to SEPH</h4>
+              <h4 className="font-semibold mb-2 text-sm">Forwarded Tasks</h4>
               <div className="overflow-auto max-h-48">
                 <table className="w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
@@ -404,29 +464,22 @@ export default function EEPHDashboard({
                       <th className="p-2 w-16">S.No</th>
                       <th className="p-2 w-40">Sector</th>
                       <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Department</th>
-                      <th className="p-2 w-32">Section</th>
-                      <th className="p-2 w-48">Remarks</th>
+                      <th className="p-2 w-32">Cost</th>
+                      <th className="p-2 w-48">Locality</th>
+                      <th className="p-2 w-20">Priority</th>
                       <th className="p-2 w-32">Status</th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {forwardedList.map((s, i) => (
                       <tr key={s.id} className="border-b">
                         <td className="p-2">{i + 1}</td>
                         <td className="p-2">{s.sector}</td>
                         <td className="p-2">{s.proposal}</td>
-                        <td className="p-2">
-                          {s.forwardedTo?.department || "-"}
-                        </td>
-                        <td className="p-2">
-                          {s.forwardedTo?.section || "-"}
-                        </td>
-                        <td className="p-2">
-                          {s.forwardedTo?.remarks || "-"}
-                        </td>
-                        <td className="p-2 text-blue-700">Forwarded</td>
+                        <td className="p-2">{fmtINR(s.cost)}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-blue-700">{s.status}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -441,7 +494,9 @@ export default function EEPHDashboard({
           <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-xl shadow max-w-4xl w-full p-6 overflow-auto max-h-[90vh]">
               <div className="flex justify-between mb-4">
-                <h3 className="font-semibold text-lg">Work Details Review</h3>
+                <h3 className="font-semibold text-lg">
+                  Work Details Review
+                </h3>
                 <button
                   onClick={() => setModalOpen(false)}
                   className="px-3 py-1 bg-red-500 text-white rounded"
@@ -469,9 +524,7 @@ export default function EEPHDashboard({
                 )}
                 {previewSubmission.workImage && (
                   <div className="md:col-span-2 mt-2">
-                    <label className="text-sm text-gray-600">
-                      Work Image
-                    </label>
+                    <label className="text-sm text-gray-600">Work Image</label>
                     <img
                       src={URL.createObjectURL(previewSubmission.workImage)}
                       alt=""
@@ -494,14 +547,14 @@ export default function EEPHDashboard({
                 />
               </div>
 
-              <div className="mt-3">{renderFileLinks(previewSubmission)}</div>
+              <div className="mt-4">{renderFileLinks(previewSubmission)}</div>
 
-              <div className="flex justify-end mt-4 gap-2">
+              <div className="flex justify-end mt-4">
                 <button
                   onClick={saveEdits}
                   className="px-4 py-2 bg-blue-600 text-white rounded"
                 >
-                  Save
+                  Save Changes
                 </button>
               </div>
             </div>
