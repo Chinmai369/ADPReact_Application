@@ -1,6 +1,6 @@
 import Header from "./Header";
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
 
 const TOTAL_BUDGET = 1000000;
 const fmtINR = (n) =>
@@ -15,6 +15,49 @@ export default function AdminDashboard({
   setForwardedSubmissions,
 }) {
   const navigate = useNavigate();
+  const routerLocation = useRouterLocation();
+
+  // Always add dummy entry upon entering dashboard route
+  useEffect(() => {
+    if (routerLocation.pathname !== "/") {
+      window.history.pushState(null, "", window.location.pathname);
+    }
+  }, [routerLocation.pathname]);
+
+  // Intercept back navigation reliably
+  useEffect(() => {
+    const handler = (event) => {
+      if (routerLocation.pathname !== "/") {
+        const confirmed = window.confirm("Are you sure you want to logout?");
+        if (confirmed) {
+          logout();
+          navigate("/", { replace: true });
+        } else {
+          window.history.pushState(null, "", window.location.pathname);
+        }
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [routerLocation.pathname, logout, navigate]);
+
+  // Extra: Intercept navigation to '/' with a prompt, not just popstate
+  useEffect(() => {
+    if (
+      routerLocation.pathname === "/" &&
+      window.history.state &&
+      // Only if we are not forced by code (navigate or redirect)
+      document.referrer && !document.referrer.includes("/login")
+    ) {
+      const confirmed = window.confirm("Are you sure you want to logout?");
+      if (!confirmed) {
+        // Block navigation by pushing back to the last dashboard route (customize as needed)
+        window.history.go(1);
+      } else {
+        logout();
+      }
+    }
+  }, [routerLocation.pathname, logout]);
 
   // filter selection state
   const [selection, setSelection] = useState({

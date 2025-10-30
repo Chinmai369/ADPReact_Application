@@ -1,5 +1,6 @@
 import Header from "./Header";
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function EEPHDashboard({
   user,
@@ -41,6 +42,49 @@ export default function EEPHDashboard({
   const sectionMap = {
     "SEPH Department": ["Water Supply", "Drainage", "Roads"],
   };
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Always add dummy entry upon entering dashboard route
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      window.history.pushState(null, "", window.location.pathname);
+    }
+  }, [location.pathname]);
+
+  // Intercept back navigation reliably
+  useEffect(() => {
+    const handler = (event) => {
+      if (location.pathname !== "/") {
+        const confirmed = window.confirm("Are you sure you want to logout?");
+        if (confirmed) {
+          logout?.();
+          navigate("/", { replace: true });
+        } else {
+          window.history.pushState(null, "", window.location.pathname);
+        }
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [location.pathname, logout, navigate]);
+
+  // Extra: Intercept navigation to '/' with a prompt, not just popstate
+  useEffect(() => {
+    if (
+      location.pathname === "/" &&
+      window.history.state &&
+      document.referrer && !document.referrer.includes("/login")
+    ) {
+      const confirmed = window.confirm("Are you sure you want to logout?");
+      if (!confirmed) {
+        window.history.go(1);
+      } else {
+        logout?.();
+      }
+    }
+  }, [location.pathname, logout]);
 
   // ✅ --- Updated useEffect: show only Commissioner → EEPH forwarded works ---
   useEffect(() => {
