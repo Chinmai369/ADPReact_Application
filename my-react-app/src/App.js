@@ -86,7 +86,7 @@ function App() {
         <Route
           path="/commissioner"
           element={
-            user?.role === "commissioner" ? (
+            user?.role === "Commissioner" ? (
               <CommissionerDashboard
                 user={user}
                 logout={logout}

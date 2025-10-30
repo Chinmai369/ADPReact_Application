@@ -6,7 +6,7 @@ export default function Header({ title, user, onLogout }) {
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-400 to-blue-600 flex items-center justify-center shadow-md">
           {/* put ap-logo.jpeg in public/assets/ap-logo.jpeg or use this placeholder */}
-          <img src="/assets/ap-logo.jpeg" alt="AP Logo" className="w-9 h-9 rounded" />
+          <img src="/ap-logo.jpeg" alt="AP Logo" className="w-9 h-9 rounded" />
         </div>
         <div>
           <div className="font-semibold text-lg">{title}</div>

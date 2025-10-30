@@ -245,7 +245,7 @@ export default function AdminDashboard({
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         
-       <img src="/ap-logo.jpeg" alt="AP Logo" className="h-12 w-auto" />
+       {/* <img src="/ap-logo.jpeg" alt="AP Logo" className="h-12 w-auto" /> */}
         <Header
        
           title="15th Finance Commission"

@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { loginUser } from "../services/api"; // ✅ Adjust path as needed
 
-const CREDENTIALS = {
-  admin: { username: "admin", password: "admin123", role: "admin" },
-  commissioner: { username: "commissioner", password: "comm123", role: "commissioner" },
-  eeph: { username: "eeph", password: "eeph123", role: "eeph" },
-  seph: { username: "seph", password: "seph123", role: "seph" },
-  encph: { username: "encph", password: "encph123", role: "encph" },
-};
+// const CREDENTIALS = {
+//   admin: { username: "admin", password: "admin123", role: "admin" },
+//   commissioner: { username: "commissioner", password: "comm123", role: "commissioner" },
+//   eeph: { username: "eeph", password: "eeph123", role: "eeph" },
+//   seph: { username: "seph", password: "seph123", role: "seph" },
+//   encph: { username: "encph", password: "encph123", role: "encph" },
+// };
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -15,29 +16,44 @@ export default function Login({ onLogin }) {
   const [err, setErr] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    if (username === CREDENTIALS.admin.username && password === CREDENTIALS.admin.password) {
-      onLogin({ role: "engg", username });
-      navigate("/admin");
-    } else if (
-      username === CREDENTIALS.commissioner.username &&
-      password === CREDENTIALS.commissioner.password
-    ) {
-      onLogin({ role: "commissioner", username });
-      navigate("/commissioner");
-    } else if (username === CREDENTIALS.eeph.username && password === CREDENTIALS.eeph.password) {
-      onLogin({ role: "eeph", username });
-      navigate("/eeph");
-    } else if (username === CREDENTIALS.seph.username && password === CREDENTIALS.seph.password) {
-      onLogin({ role: "seph", username });
-      navigate("/seph");
-    } else if (username === CREDENTIALS.encph.username && password === CREDENTIALS.encph.password) {
-      onLogin({ role: "encph", username });
-      navigate("/encph");
+  const handleLogin = async () => {
+    if (!username || !password) {
+      setErr("Please enter both username and password");
+      return;
+    }
+
+    const result = await loginUser(username, password);
+
+    if (result.success) {
+      const { role, username } = result;
+      onLogin({ role, username }); // ✅ Update app state
+
+      // ✅ Redirect based on user role
+      switch (role) {
+        case "engg":
+          navigate("/admin");
+          break;
+        case "Commissioner":
+          navigate("/commissioner");
+          break;
+        case "eeph":
+          navigate("/eeph");
+          break;
+        case "seph":
+          navigate("/seph");
+          break;
+        case "encph":
+          navigate("/encph");
+          break;
+        default:
+          navigate("/");
+          break;
+      }
     } else {
-      setErr("Invalid credentials. Try admin/admin123, commissioner/comm123, or eeph/eeph123");
+      setErr(result.message || "Invalid username or password");
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 font-sans">
