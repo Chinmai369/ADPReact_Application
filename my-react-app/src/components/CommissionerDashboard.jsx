@@ -21,6 +21,7 @@ export default function CommissionerDashboard({
   const [approvedList, setApprovedList] = useState([]);
   const [forwardedList, setForwardedList] = useState([]);
   const [rejectedList, setRejectedList] = useState([]);
+  const [eephRejectedList, setEephRejectedList] = useState([]);
 
   const [previewSubmission, setPreviewSubmission] = useState(null);
   const [editable, setEditable] = useState(null);
@@ -59,6 +60,9 @@ export default function CommissionerDashboard({
     );
     setRejectedList(
       forwardedSubmissions.filter((s) => s.status === "Rejected")
+    );
+    setEephRejectedList(
+      forwardedSubmissions.filter((s) => s.status === "EEPH Rejected")
     );
   }, [forwardedSubmissions]);
 
@@ -430,6 +434,43 @@ export default function CommissionerDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">Rejected</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Returned from EEPH */}
+          {eephRejectedList.length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2 text-sm">Returned from EEPH</h4>
+              <div className="overflow-auto max-h-48">
+               <table className="w-full text-sm border-collapse">
+
+                  <thead className="bg-gray-100 border-b">
+  <tr>
+    <th className="p-2 w-16">S.No</th>
+    <th className="p-2 w-40">Sector</th>
+    <th className="p-2 w-64">Proposal</th>
+    <th className="p-2 w-32">Cost</th>
+    <th className="p-2 w-48">Locality</th>
+    <th className="p-2 w-20">Priority</th>
+    <th className="p-2 w-32">Status</th>
+  </tr>
+</thead>
+
+                  <tbody>
+                    {eephRejectedList.map((s, i) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2">{s.proposal}</td>
+                        <td className="p-2">{fmtINR(s.cost)}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-red-700">EEPH Rejected</td>
                       </tr>
                     ))}
                   </tbody>
