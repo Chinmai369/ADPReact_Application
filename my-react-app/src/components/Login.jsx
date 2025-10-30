@@ -17,7 +17,7 @@ export default function Login({ onLogin }) {
 
   const handleLogin = () => {
     if (username === CREDENTIALS.admin.username && password === CREDENTIALS.admin.password) {
-      onLogin({ role: "admin", username });
+      onLogin({ role: "engg", username });
       navigate("/admin");
     } else if (
       username === CREDENTIALS.commissioner.username &&

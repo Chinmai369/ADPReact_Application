@@ -71,7 +71,7 @@ function App() {
         <Route
           path="/admin"
           element={
-            user?.role === "admin" ? (
+            user?.role === "engg" ? (
               <AdminDashboard
                 user={user}
                 logout={logout}
