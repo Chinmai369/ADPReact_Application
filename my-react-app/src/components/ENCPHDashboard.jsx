@@ -1,7 +1,7 @@
 import Header from "./Header";
 import React, { useEffect, useRef, useState } from "react";
 
-export default function SEPHDashboard({
+export default function ENCPHDashboard({
   user,
   logout,
   forwardedSubmissions,
@@ -38,21 +38,21 @@ export default function SEPHDashboard({
         const section = (s.forwardedTo?.section || "").trim();
         
         // Exclude already processed tasks
-        const isProcessed = ["SEPH Approved", "SEPH Rejected"].includes(status);
+        const isProcessed = ["ENCPH Approved", "ENCPH Rejected"].includes(status);
         if (isProcessed) return false;
         
-        // Match status or section to SEPH
+        // Match status or section to ENCPH
         const statusLower = status.toLowerCase();
-        if (statusLower.includes("forwarded to seph")) return true;
-        if (section.toLowerCase() === "seph") return true;
-        if (statusLower.startsWith("forwarded to") && section.toLowerCase() === "seph") return true;
+        if (statusLower.includes("forwarded to encph")) return true;
+        if (section.toLowerCase() === "encph") return true;
+        if (statusLower.startsWith("forwarded to") && section.toLowerCase() === "encph") return true;
         return false;
       }
     );
     setPendingList(pending);
-    const approved = forwardedSubmissions.filter((s) => s.status === "SEPH Approved");
+    const approved = forwardedSubmissions.filter((s) => s.status === "ENCPH Approved");
     setApprovedList(approved);
-    const rejected = forwardedSubmissions.filter((s) => s.status === "SEPH Rejected");
+    const rejected = forwardedSubmissions.filter((s) => s.status === "ENCPH Rejected");
     setRejectedList(rejected);
   }, [forwardedSubmissions]);
 
@@ -96,10 +96,10 @@ export default function SEPHDashboard({
   const approve = (subId) => {
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
-        f.id === subId ? { ...f, status: "SEPH Approved" } : f
+        f.id === subId ? { ...f, status: "ENCPH Approved" } : f
       )
     );
-    setApproveBanner("Work approved successfully by SEPH.");
+    setApproveBanner("Work approved successfully by ENCPH.");
     setTimeout(() => setApproveBanner(""), 1500);
   };
 
@@ -107,10 +107,10 @@ export default function SEPHDashboard({
   const reject = (subId) => {
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
-        f.id === subId ? { ...f, status: "SEPH Rejected" } : f
+        f.id === subId ? { ...f, status: "ENCPH Rejected" } : f
       )
     );
-    setRejectBanner("Work rejected and sent back to EEPH.");
+    setRejectBanner("Work rejected and sent back to SEPH.");
     setTimeout(() => setRejectBanner(""), 1500);
   };
 
@@ -142,7 +142,7 @@ export default function SEPHDashboard({
   };
 
   const isActionDisabled = (status) =>
-    ["SEPH Approved", "SEPH Rejected"].includes(status);
+    ["ENCPH Approved", "ENCPH Rejected"].includes(status);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -158,7 +158,7 @@ export default function SEPHDashboard({
 
         <div className="bg-white p-6 rounded-xl shadow border mt-6">
           <div className="flex justify-between mb-4">
-            <h2 className="font-semibold text-gray-700">SEPH Dashboard</h2>
+            <h2 className="font-semibold text-gray-700">ENCPH Dashboard</h2>
             <button
               onClick={() => {
                 logout?.();
@@ -228,7 +228,7 @@ export default function SEPHDashboard({
                             onClick={() => approve(s.id)}
                             disabled={isActionDisabled(s.status)}
                             className={`px-2 py-1 text-xs rounded ${
-                              s.status === "SEPH Approved"
+                              s.status === "ENCPH Approved"
                                 ? "bg-gray-300"
                                 : "bg-green-600 text-white"
                             }`}
@@ -237,9 +237,9 @@ export default function SEPHDashboard({
                           </button>
                           <button
                             onClick={() => reject(s.id)}
-                            disabled={s.status === "SEPH Rejected"}
+                            disabled={s.status === "ENCPH Rejected"}
                             className={`px-2 py-1 text-xs rounded ${
-                              s.status === "SEPH Rejected"
+                              s.status === "ENCPH Rejected"
                                 ? "bg-gray-300"
                                 : "bg-red-600 text-white"
                             }`}
@@ -258,7 +258,7 @@ export default function SEPHDashboard({
           {/* Approved Table */}
           {approvedList.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Approved by SEPH</h4>
+              <h4 className="font-semibold mb-2 text-sm">Approved by ENCPH</h4>
               <div className="overflow-auto max-h-48">
                <table className="w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
@@ -281,7 +281,7 @@ export default function SEPHDashboard({
                         <td className="p-2">{fmtINR(s.cost)}</td>
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
-                        <td className="p-2 text-green-700">SEPH Approved</td>
+                        <td className="p-2 text-green-700">ENCPH Approved</td>
                       </tr>
                     ))}
                   </tbody>
@@ -293,7 +293,7 @@ export default function SEPHDashboard({
           {/* Rejected Table */}
           {rejectedList.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Rejected by SEPH</h4>
+              <h4 className="font-semibold mb-2 text-sm">Rejected by ENCPH</h4>
               <div className="overflow-auto max-h-48">
                <table className="w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
@@ -309,40 +309,6 @@ export default function SEPHDashboard({
                   </thead>
                   <tbody>
                     {rejectedList.map((s, i) => (
-                      <tr key={s.id} className="border-b">
-                        <td className="p-2">{i + 1}</td>
-                        <td className="p-2">{s.sector}</td>
-                        <td className="p-2">{s.proposal}</td>
-                        <td className="p-2">{fmtINR(s.cost)}</td>
-                        <td className="p-2">{s.locality}</td>
-                        <td className="p-2">{s.priority}</td>
-                        <td className="p-2 text-red-700">SEPH Rejected</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "ENCPH Rejected").length > 0 && (
-            <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Returned from ENCPH</h4>
-              <div className="overflow-auto max-h-48">
-                <table className="w-full text-sm border-collapse">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {forwardedSubmissions.filter((s) => s.status === "ENCPH Rejected").map((s, i) => (
                       <tr key={s.id} className="border-b">
                         <td className="p-2">{i + 1}</td>
                         <td className="p-2">{s.sector}</td>
@@ -406,7 +372,7 @@ export default function SEPHDashboard({
 
                 <div className="mt-4">
                   <label className="text-sm text-gray-600">
-                    SEPH Remarks
+                    ENCPH Remarks
                   </label>
                   <textarea
                     className="w-full border p-2 rounded mt-1"
