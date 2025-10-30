@@ -4,6 +4,7 @@ import EEPHDashboard from "./components/EEPHDashboard";
 import Login from "./components/Login";
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import SEPHDashboard from "./components/SEPHDashboard";
 
 // localStorage key for persisted submissions
 const STORAGE_KEY = "forwardedSubmissions";
@@ -111,6 +112,22 @@ function App() {
     )
   }
 />
+
+        <Route
+          path="/seph"
+          element={
+            user?.role === "seph" ? (
+              <SEPHDashboard
+                user={user}
+                logout={logout}
+                forwardedSubmissions={forwardedSubmissions}
+                setForwardedSubmissions={updateForwardedSubmissions}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

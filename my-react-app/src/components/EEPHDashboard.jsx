@@ -487,6 +487,40 @@ export default function EEPHDashboard({
               </div>
             </div>
           )}
+
+          {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "SEPH Rejected").length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2 text-sm">Returned from SEPH</h4>
+              <div className="overflow-auto max-h-48">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-gray-100 border-b">
+                    <tr>
+                      <th className="p-2 w-16">S.No</th>
+                      <th className="p-2 w-40">Sector</th>
+                      <th className="p-2 w-64">Proposal</th>
+                      <th className="p-2 w-32">Cost</th>
+                      <th className="p-2 w-48">Locality</th>
+                      <th className="p-2 w-20">Priority</th>
+                      <th className="p-2 w-32">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forwardedSubmissions.filter((s) => s.status === "SEPH Rejected").map((s, i) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2">{s.proposal}</td>
+                        <td className="p-2">{fmtINR(s.cost)}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-red-700">SEPH Rejected</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal */}
