@@ -556,6 +556,42 @@ export default function AdminDashboard({
             </div>
           </div>
         )}
+        {/* Rejected by Commissioner */}
+        {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "Rejected").length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6 border mt-6">
+            <div className="text-sm font-medium mb-3">Rejected by Commissioner</div>
+            <div className="overflow-auto max-h-72">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="text-left text-sm border-b">
+                    <th className="p-2">S.No</th>
+                    <th className="p-2">Sector</th>
+                    <th className="p-2">Proposal</th>
+                    <th className="p-2 text-right">Estimated cost</th>
+                    <th className="p-2">Locality</th>
+                    <th className="p-2">Priority</th>
+                    <th className="p-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forwardedSubmissions
+                    .filter((s) => s.status === "Rejected")
+                    .map((s, i) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2">{s.proposal}</td>
+                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-red-600">Rejected</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

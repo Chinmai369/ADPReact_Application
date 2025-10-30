@@ -21,6 +21,7 @@ export default function CommissionerDashboard({
   const [approvedList, setApprovedList] = useState([]);
   const [forwardedList, setForwardedList] = useState([]);
   const [rejectedList, setRejectedList] = useState([]);
+  const [eephRejectedList, setEephRejectedList] = useState([]);
 
   const [previewSubmission, setPreviewSubmission] = useState(null);
   const [editable, setEditable] = useState(null);
@@ -49,15 +50,19 @@ export default function CommissionerDashboard({
     setPendingList(
       forwardedSubmissions.filter(
         (s) =>
-          !["Approved", "Rejected", "Forwarded to Dept"].includes(s.status)
+          !["Approved", "Rejected"].includes(s.status) &&
+          !s.status?.startsWith("Forwarded to")
       )
     );
     setApprovedList(forwardedSubmissions.filter((s) => s.status === "Approved"));
     setForwardedList(
-      forwardedSubmissions.filter((s) => s.status === "Forwarded to Dept")
+      forwardedSubmissions.filter((s) => s.status?.startsWith("Forwarded to"))
     );
     setRejectedList(
       forwardedSubmissions.filter((s) => s.status === "Rejected")
+    );
+    setEephRejectedList(
+      forwardedSubmissions.filter((s) => s.status === "EEPH Rejected")
     );
   }, [forwardedSubmissions]);
 
@@ -100,13 +105,17 @@ export default function CommissionerDashboard({
 
   // --- Approve ---
   const approve = (subId) => {
-    setForwardedSubmissions((prev) =>
-      prev.map((f) =>
+    setForwardedSubmissions((prev) => {
+      const updated = prev.map((f) =>
         f.id === subId ? { ...f, status: "Approved" } : f
-      )
-    );
-    const sub = forwardedSubmissions.find((f) => f.id === subId);
-    setPreviewSubmission(sub);
+      );
+      // Find the updated submission to set as preview
+      const updatedSub = updated.find((f) => f.id === subId);
+      if (updatedSub) {
+        setPreviewSubmission(updatedSub);
+      }
+      return updated;
+    });
     setShowForwardPanel(true);
     setDept("");
     setSection("");
@@ -128,10 +137,27 @@ export default function CommissionerDashboard({
 
   // --- Forward ---
   const forwardApprovedToDept = () => {
-    if (!dept || !section || !previewSubmission)
-      return alert("Select department and section");
-    setForwardedSubmissions((prev) =>
-      prev.map((f) =>
+    if (!dept || !section || !previewSubmission) {
+      alert("Select department and section");
+      return;
+    }
+
+    const newStatus = `Forwarded to ${section}`;
+    
+    console.log("📤 Commissioner forwarding task:", {
+      taskId: previewSubmission.id,
+      dept,
+      section,
+      newStatus,
+      forwardedTo: {
+        department: dept,
+        section,
+        remarks: forwardRemarks,
+      }
+    });
+
+    setForwardedSubmissions((prev) => {
+      const updated = prev.map((f) =>
         f.id === previewSubmission.id
           ? {
               ...f,
@@ -140,18 +166,36 @@ export default function CommissionerDashboard({
                 section,
                 remarks: forwardRemarks,
               },
-              status: "Forwarded to Dept",
+              status: newStatus,
             }
           : f
-      )
-    );
-    setForwardSuccess("Forwarded to department successfully!");
+      );
+      console.log("✅ Commissioner updated submissions:", updated);
+      return updated;
+    });
+
+    // Update previewSubmission with new status
+    setPreviewSubmission({
+      ...previewSubmission,
+      forwardedTo: {
+        department: dept,
+        section,
+        remarks: forwardRemarks,
+      },
+      status: newStatus,
+    });
+
+    setForwardSuccess(`Work forwarded to ${section} successfully!`);
     setTimeout(() => {
       setForwardSuccess("");
       setShowForwardPanel(false);
       setPreviewSubmission(null);
+      setDept("");
+      setSection("");
+      setForwardRemarks("");
     }, 1200);
   };
+
 
   const renderFileLinks = (sub) => {
     const files = [];
@@ -181,7 +225,8 @@ export default function CommissionerDashboard({
   };
 
   const isActionDisabled = (status) =>
-    ["Approved", "Rejected", "Forwarded to Dept"].includes(status);
+    ["Approved", "Rejected"].includes(status) ||
+    status?.startsWith("Forwarded to");
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -301,7 +346,7 @@ export default function CommissionerDashboard({
           )}
 
           {/* Forward panel */}
-          {showForwardPanel && previewSubmission && (
+          {showForwardPanel && previewSubmission && previewSubmission.status === "Approved" && (
             <div className="bg-white border rounded-xl shadow p-5 mt-6">
               <h4 className="font-semibold mb-3">
                 Forward Approved Work to Department
@@ -397,6 +442,43 @@ export default function CommissionerDashboard({
             </div>
           )}
 
+          {/* Returned from EEPH */}
+          {eephRejectedList.length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2 text-sm">Returned from EEPH</h4>
+              <div className="overflow-auto max-h-48">
+               <table className="w-full text-sm border-collapse">
+
+                  <thead className="bg-gray-100 border-b">
+  <tr>
+    <th className="p-2 w-16">S.No</th>
+    <th className="p-2 w-40">Sector</th>
+    <th className="p-2 w-64">Proposal</th>
+    <th className="p-2 w-32">Cost</th>
+    <th className="p-2 w-48">Locality</th>
+    <th className="p-2 w-20">Priority</th>
+    <th className="p-2 w-32">Status</th>
+  </tr>
+</thead>
+
+                  <tbody>
+                    {eephRejectedList.map((s, i) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2">{s.proposal}</td>
+                        <td className="p-2">{fmtINR(s.cost)}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-red-700">EEPH Rejected</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Forwarded Table */}
           {forwardedList.length > 0 && (
             <div className="mt-6">
@@ -422,16 +504,10 @@ export default function CommissionerDashboard({
                         <td className="p-2">{i + 1}</td>
                         <td className="p-2">{s.sector}</td>
                         <td className="p-2">{s.proposal}</td>
-                        <td className="p-2">
-                          {s.forwardedTo?.department || "-"}
-                        </td>
-                        <td className="p-2">
-                          {s.forwardedTo?.section || "-"}
-                        </td>
-                        <td className="p-2">
-                          {s.forwardedTo?.remarks || "-"}
-                        </td>
-                        <td className="p-2 text-blue-700">Forwarded</td>
+                        <td className="p-2">{fmtINR(s.cost)}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-blue-700">{s.status}</td>
                       </tr>
                     ))}
                   </tbody>

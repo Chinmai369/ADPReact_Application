@@ -5,6 +5,7 @@ const CREDENTIALS = {
   admin: { username: "admin", password: "admin123", role: "admin" },
   commissioner: { username: "commissioner", password: "comm123", role: "commissioner" },
   eeph: { username: "eeph", password: "eeph123", role: "eeph" },
+  seph: { username: "seph", password: "seph123", role: "seph" },
 };
 
 export default function Login({ onLogin }) {
@@ -26,6 +27,9 @@ export default function Login({ onLogin }) {
     } else if (username === CREDENTIALS.eeph.username && password === CREDENTIALS.eeph.password) {
       onLogin({ role: "eeph", username });
       navigate("/eeph");
+    } else if (username === CREDENTIALS.seph.username && password === CREDENTIALS.seph.password) {
+      onLogin({ role: "seph", username });
+      navigate("/seph");
     } else {
       setErr("Invalid credentials. Try admin/admin123, commissioner/comm123, or eeph/eeph123");
     }
