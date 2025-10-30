@@ -7,6 +7,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Add user route
+app.post("/api/addUser", async (req, res) => {
+  const { username, password, role } = req.body;
+  console.log("📥 Incoming request:", req.body);
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("🔑 Hashed password generated:", hashedPassword);
+
+    const query = `
+      INSERT INTO lgn_fnc (username, password, hashed_password, role)
+      VALUES (?, ?, ?, ?)
+    `;
+
+    const [result] = await pool.query(query, [username, password, hashedPassword, role]);
+    console.log("✅ Insert result:", result);
+
+    res.json({
+      message: "✅ User added successfully!",
+      userId: result.insertId,
+    });
+  } catch (err) {
+    console.error("❌ Full error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 // LOGIN API
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
