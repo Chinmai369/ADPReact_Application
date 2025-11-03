@@ -38,6 +38,9 @@ export default function CommissionerDashboard({
   const [approveBanner, setApproveBanner] = useState("");
   const [rejectBanner, setRejectBanner] = useState("");
 
+  const [showRejectPanel, setShowRejectPanel] = useState(false);
+  const [rejectRemarks, setRejectRemarks] = useState("");
+
   const urlCache = useRef([]);
 
   const sectionMap = {
@@ -72,22 +75,6 @@ export default function CommissionerDashboard({
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
   }, [location.pathname, logout, navigate]);
-
-  // Extra: Intercept navigation to '/' with a prompt, not just popstate
-  useEffect(() => {
-    if (
-      location.pathname === "/" &&
-      window.history.state &&
-      document.referrer && !document.referrer.includes("/login")
-    ) {
-      const confirmed = window.confirm("Are you sure you want to logout?");
-      if (!confirmed) {
-        window.history.go(1);
-      } else {
-        logout?.();
-      }
-    }
-  }, [location.pathname, logout]);
 
   // --- Update lists ---
   useEffect(() => {
@@ -129,6 +116,10 @@ export default function CommissionerDashboard({
       crNumber: sub.crNumber || "",
       crDate: sub.crDate || "",
       remarks: sub.remarks || "",
+      workImage: sub.workImage || null,
+      detailedReport: sub.detailedReport || null,
+      committeeReport: sub.committeeReport || null,
+      councilResolution: sub.councilResolution || null,
     });
     setModalOpen(true);
   };
@@ -170,13 +161,32 @@ export default function CommissionerDashboard({
 
   // --- Reject ---
   const reject = (subId) => {
+    const sub = forwardedSubmissions.find((f) => f.id === subId);
+    setPreviewSubmission(sub);
+    setShowRejectPanel(true);
+    setRejectRemarks("");
+  };
+
+  const confirmReject = () => {
+    if (!rejectRemarks || !previewSubmission) {
+      alert("Please enter remarks before rejecting.");
+      return;
+    }
+
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
-        f.id === subId ? { ...f, status: "Rejected" } : f
+        f.id === previewSubmission.id
+          ? { ...f, status: "Rejected", remarks: rejectRemarks }
+          : f
       )
     );
     setRejectBanner("Work rejected successfully.");
-    setTimeout(() => setRejectBanner(""), 1500);
+    setTimeout(() => {
+      setRejectBanner("");
+      setShowRejectPanel(false);
+      setPreviewSubmission(null);
+      setRejectRemarks("");
+    }, 1500);
   };
 
   // --- Forward ---
@@ -285,20 +295,9 @@ export default function CommissionerDashboard({
         />
 
         <div className="bg-white p-6 rounded-xl shadow border mt-6">
-          <div className="flex justify-between mb-4">
-            <h2 className="font-semibold text-gray-700">
-              Commissioner Dashboard
-            </h2>
-            <button
-              onClick={() => {
-                logout?.();
-                window.location.href = "/";
-              }}
-              className="px-3 py-1 bg-gray-200 rounded text-sm"
-            >
-              Logout
-            </button>
-          </div>
+          <h2 className="font-semibold text-gray-700 mb-4">
+            Commissioner Dashboard
+          </h2>
 
           {/* banners */}
           {saveBanner && (
@@ -325,18 +324,18 @@ export default function CommissionerDashboard({
             <p className="text-gray-500 text-sm">No items to review.</p>
           ) : (
             <div className="overflow-auto max-h-80">
-            <table className="w-full text-sm border-collapse">
+            <table className="min-w-full text-sm border-collapse">
 
                 <thead className="bg-gray-100 border-b">
   <tr>
-    <th className="p-2 w-16">S.No</th>
-    <th className="p-2 w-40">Sector</th>
-    <th className="p-2 w-64">Proposal</th>
-    <th className="p-2 w-32">Cost</th>
-    <th className="p-2 w-48">Locality</th>
-    <th className="p-2 w-20">Priority</th>
-    <th className="p-2 w-32">Status</th>
-    <th className="p-2 w-40">Actions</th>
+    <th className="p-2 text-left whitespace-nowrap">S.No</th>
+    <th className="p-2 text-left whitespace-nowrap">Sector</th>
+    <th className="p-2 text-left">Proposal</th>
+    <th className="p-2 text-left whitespace-nowrap">Cost</th>
+    <th className="p-2 text-left whitespace-nowrap">Locality</th>
+    <th className="p-2 text-left whitespace-nowrap">Priority</th>
+    <th className="p-2 text-left whitespace-nowrap">Status</th>
+    <th className="p-2 text-left">Actions</th>
   </tr>
 </thead>
 
@@ -349,7 +348,7 @@ export default function CommissionerDashboard({
                       <td className="p-2">{fmtINR(s.cost)}</td>
                       <td className="p-2">{s.locality}</td>
                       <td className="p-2">{s.priority}</td>
-                      <td className="p-2">{s.status}</td>
+                      <td className="p-2">Pending</td>
                       <td className="p-2">
                         <div className="flex gap-2">
                           <button
@@ -449,22 +448,57 @@ export default function CommissionerDashboard({
             </div>
           )}
 
+          {showRejectPanel && previewSubmission && (
+            <div className="bg-white border rounded-xl shadow p-5 mt-6">
+              <h4 className="font-semibold mb-3">Reject Work</h4>
+              <div>
+                <label className="text-sm text-gray-600">Remarks (Required)</label>
+                <textarea
+                  className="w-full border p-2 rounded mt-1"
+                  rows={4}
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="Please enter reason for rejection..."
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setShowRejectPanel(false);
+                    setRejectRemarks("");
+                    setPreviewSubmission(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmReject}
+                  className="px-4 py-2 bg-red-600 text-white rounded"
+                >
+                  Submit Rejection
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Rejected Table */}
           {rejectedList.length > 0 && (
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Rejected Tasks</h4>
               <div className="overflow-auto max-h-48">
-               <table className="w-full text-sm border-collapse">
+               <table className="min-w-full text-sm border-collapse">
 
                   <thead className="bg-gray-100 border-b">
   <tr>
-    <th className="p-2 w-16">S.No</th>
-    <th className="p-2 w-40">Sector</th>
-    <th className="p-2 w-64">Proposal</th>
-    <th className="p-2 w-32">Cost</th>
-    <th className="p-2 w-48">Locality</th>
-    <th className="p-2 w-20">Priority</th>
-    <th className="p-2 w-32">Status</th>
+    <th className="p-2 text-left whitespace-nowrap">S.No</th>
+    <th className="p-2 text-left whitespace-nowrap">Sector</th>
+    <th className="p-2 text-left">Proposal</th>
+    <th className="p-2 text-left whitespace-nowrap">Cost</th>
+    <th className="p-2 text-left whitespace-nowrap">Locality</th>
+    <th className="p-2 text-left whitespace-nowrap">Priority</th>
+    <th className="p-2 text-left whitespace-nowrap">Status</th>
+    <th className="p-2 text-left">Remarks</th>
   </tr>
 </thead>
 
@@ -478,6 +512,7 @@ export default function CommissionerDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -491,17 +526,18 @@ export default function CommissionerDashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Returned from EEPH</h4>
               <div className="overflow-auto max-h-48">
-               <table className="w-full text-sm border-collapse">
+               <table className="min-w-full text-sm border-collapse">
 
                   <thead className="bg-gray-100 border-b">
   <tr>
-    <th className="p-2 w-16">S.No</th>
-    <th className="p-2 w-40">Sector</th>
-    <th className="p-2 w-64">Proposal</th>
-    <th className="p-2 w-32">Cost</th>
-    <th className="p-2 w-48">Locality</th>
-    <th className="p-2 w-20">Priority</th>
-    <th className="p-2 w-32">Status</th>
+    <th className="p-2 text-left whitespace-nowrap">S.No</th>
+    <th className="p-2 text-left whitespace-nowrap">Sector</th>
+    <th className="p-2 text-left">Proposal</th>
+    <th className="p-2 text-left whitespace-nowrap">Cost</th>
+    <th className="p-2 text-left whitespace-nowrap">Locality</th>
+    <th className="p-2 text-left whitespace-nowrap">Priority</th>
+    <th className="p-2 text-left whitespace-nowrap">Status</th>
+    <th className="p-2 text-left">Remarks</th>
   </tr>
 </thead>
 
@@ -515,6 +551,7 @@ export default function CommissionerDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">EEPH Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -528,17 +565,17 @@ export default function CommissionerDashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Forwarded Tasks</h4>
               <div className="overflow-auto max-h-48">
-               <table className="w-full text-sm border-collapse">
+               <table className="min-w-full text-sm border-collapse">
 
                   <thead className="bg-gray-100 border-b">
   <tr>
-    <th className="p-2 w-16">S.No</th>
-    <th className="p-2 w-40">Sector</th>
-    <th className="p-2 w-64">Proposal</th>
-    <th className="p-2 w-32">Cost</th>
-    <th className="p-2 w-48">Locality</th>
-    <th className="p-2 w-20">Priority</th>
-    <th className="p-2 w-32">Status</th>
+    <th className="p-2 text-left whitespace-nowrap">S.No</th>
+    <th className="p-2 text-left whitespace-nowrap">Sector</th>
+    <th className="p-2 text-left">Proposal</th>
+    <th className="p-2 text-left whitespace-nowrap">Cost</th>
+    <th className="p-2 text-left">Locality</th>
+    <th className="p-2 text-left whitespace-nowrap">Priority</th>
+    <th className="p-2 text-left whitespace-nowrap">Status</th>
   </tr>
 </thead>
 
@@ -594,16 +631,135 @@ export default function CommissionerDashboard({
                     </div>
                   )
                 )}
-                {previewSubmission.workImage && (
-                  <div className="md:col-span-2 mt-2">
-                    <label className="text-sm text-gray-600">Work Image</label>
-                    <img
-                      src={URL.createObjectURL(previewSubmission.workImage)}
-                      alt=""
-                      className="mt-2 rounded max-h-60"
+              </div>
+
+              {/* File uploads section */}
+              <div className="mt-4 space-y-4">
+                <h4 className="font-semibold text-sm text-gray-700">Attached Files</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Work Image */}
+                  <div className="border rounded p-3 bg-gray-50">
+                    <label className="text-sm text-gray-700 font-medium block mb-2">Work Image</label>
+                    {previewSubmission.workImage ? (
+                      <div className="mb-2">
+                        <img
+                          src={URL.createObjectURL(previewSubmission.workImage)}
+                          alt="Work"
+                          className="rounded max-h-40 border"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                        />
+                        <div style={{display: 'none'}} className="text-sm text-gray-500">Image preview unavailable</div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500 mb-2">No image attached</div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setEditable({ ...editable, workImage: file });
+                        }
+                      }}
+                      className="w-full border p-2 rounded text-sm bg-white"
                     />
                   </div>
-                )}
+
+                  {/* Detailed/Estimation Report */}
+                  <div className="border rounded p-3 bg-gray-50">
+                    <label className="text-sm text-gray-700 font-medium block mb-2">Estimation Report</label>
+                    {previewSubmission.detailedReport ? (
+                      <div className="mb-2">
+                        <a
+                          href={URL.createObjectURL(previewSubmission.detailedReport)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 underline text-sm hover:text-blue-800"
+                        >
+                          📄 View Current Report ({previewSubmission.detailedReport.name || 'file'})
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500 mb-2">No report attached</div>
+                    )}
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setEditable({ ...editable, detailedReport: file });
+                        }
+                      }}
+                      className="w-full border p-2 rounded text-sm bg-white"
+                    />
+                  </div>
+
+                  {/* Committee Report */}
+                  <div className="border rounded p-3 bg-gray-50">
+                    <label className="text-sm text-gray-700 font-medium block mb-2">Committee Report</label>
+                    {previewSubmission.committeeReport ? (
+                      <div className="mb-2">
+                        <a
+                          href={URL.createObjectURL(previewSubmission.committeeReport)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 underline text-sm hover:text-blue-800"
+                        >
+                          📄 View Current Report ({previewSubmission.committeeReport.name || 'file'})
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500 mb-2">No report attached</div>
+                    )}
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setEditable({ ...editable, committeeReport: file });
+                        }
+                      }}
+                      className="w-full border p-2 rounded text-sm bg-white"
+                    />
+                  </div>
+
+                  {/* Council Resolution Report */}
+                  <div className="border rounded p-3 bg-gray-50">
+                    <label className="text-sm text-gray-700 font-medium block mb-2">Council Resolution Report</label>
+                    {previewSubmission.councilResolution ? (
+                      <div className="mb-2">
+                        <a
+                          href={URL.createObjectURL(previewSubmission.councilResolution)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 underline text-sm hover:text-blue-800"
+                        >
+                          📄 View Current Report ({previewSubmission.councilResolution.name || 'file'})
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500 mb-2">No report attached</div>
+                    )}
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setEditable({ ...editable, councilResolution: file });
+                        }
+                      }}
+                      className="w-full border p-2 rounded text-sm bg-white"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4">
@@ -618,8 +774,6 @@ export default function CommissionerDashboard({
                   }
                 />
               </div>
-
-              <div className="mt-4">{renderFileLinks(previewSubmission)}</div>
 
               <div className="flex justify-end mt-4">
                 <button

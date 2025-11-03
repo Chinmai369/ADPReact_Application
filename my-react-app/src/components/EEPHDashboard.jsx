@@ -33,6 +33,9 @@ export default function EEPHDashboard({
   const [forwardRemarks, setForwardRemarks] = useState("");
   const [forwardSuccess, setForwardSuccess] = useState("");
 
+  const [showRejectPanel, setShowRejectPanel] = useState(false);
+  const [rejectRemarks, setRejectRemarks] = useState("");
+
   const [saveBanner, setSaveBanner] = useState("");
   const [approveBanner, setApproveBanner] = useState("");
   const [rejectBanner, setRejectBanner] = useState("");
@@ -40,7 +43,7 @@ export default function EEPHDashboard({
   const urlCache = useRef([]);
 
   const sectionMap = {
-    "SEPH Department": ["Water Supply", "Drainage", "Roads"],
+    "Administration": ["SEPH", "ENCPH"],
   };
 
   const navigate = useNavigate();
@@ -223,13 +226,32 @@ export default function EEPHDashboard({
 
   // --- Reject ---
   const reject = (subId) => {
+    const sub = forwardedSubmissions.find((f) => f.id === subId);
+    setPreviewSubmission(sub);
+    setShowRejectPanel(true);
+    setRejectRemarks("");
+  };
+
+  const confirmReject = () => {
+    if (!rejectRemarks || !previewSubmission) {
+      alert("Please enter remarks before rejecting.");
+      return;
+    }
+
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
-        f.id === subId ? { ...f, status: "EEPH Rejected" } : f
+        f.id === previewSubmission.id
+          ? { ...f, status: "EEPH Rejected", remarks: rejectRemarks }
+          : f
       )
     );
     setRejectBanner("Work rejected and sent back to Commissioner.");
-    setTimeout(() => setRejectBanner(""), 1500);
+    setTimeout(() => {
+      setRejectBanner("");
+      setShowRejectPanel(false);
+      setPreviewSubmission(null);
+      setRejectRemarks("");
+    }, 1500);
   };
 
   // --- Forward ---
@@ -303,18 +325,7 @@ export default function EEPHDashboard({
         />
 
         <div className="bg-white p-6 rounded-xl shadow border mt-6">
-          <div className="flex justify-between mb-4">
-            <h2 className="font-semibold text-gray-700">EEPH Dashboard</h2>
-            <button
-              onClick={() => {
-                logout?.();
-                window.location.href = "/";
-              }}
-              className="px-3 py-1 bg-gray-200 rounded text-sm"
-            >
-              Logout
-            </button>
-          </div>
+          <h2 className="font-semibold text-gray-700 mb-4">EEPH Dashboard</h2>
 
           {/* banners */}
           {saveBanner && (
@@ -339,17 +350,17 @@ export default function EEPHDashboard({
             <p className="text-gray-500 text-sm">No items to review.</p>
           ) : (
             <div className="overflow-auto max-h-80">
-              <table className="w-full text-sm border-collapse">
+              <table className="min-w-full text-sm border-collapse">
                 <thead className="bg-gray-100 border-b">
                   <tr>
-                    <th className="p-2 w-16">S.No</th>
-                    <th className="p-2 w-40">Sector</th>
-                    <th className="p-2 w-64">Proposal</th>
-                    <th className="p-2 w-32">Cost</th>
-                    <th className="p-2 w-48">Locality</th>
-                    <th className="p-2 w-20">Priority</th>
-                    <th className="p-2 w-32">Status</th>
-                    <th className="p-2 w-40">Actions</th>
+                    <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                    <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                    <th className="p-2 text-left">Proposal</th>
+                    <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                    <th className="p-2 text-left">Locality</th>
+                    <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                    <th className="p-2 text-left whitespace-nowrap">Status</th>
+                    <th className="p-2 text-left whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
 
@@ -362,7 +373,7 @@ export default function EEPHDashboard({
                       <td className="p-2">{fmtINR(s.cost)}</td>
                       <td className="p-2">{s.locality}</td>
                       <td className="p-2">{s.priority}</td>
-                      <td className="p-2">{s.status}</td>
+                      <td className="p-2">Pending</td>
                       <td className="p-2">
                         <div className="flex gap-2">
                           <button
@@ -462,21 +473,56 @@ export default function EEPHDashboard({
             </div>
           )}
 
+          {showRejectPanel && previewSubmission && (
+            <div className="bg-white border rounded-xl shadow p-5 mt-6">
+              <h4 className="font-semibold mb-3">Reject Work</h4>
+              <div>
+                <label className="text-sm text-gray-600">Remarks (Required)</label>
+                <textarea
+                  className="w-full border p-2 rounded mt-1"
+                  rows={4}
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="Please enter reason for rejection..."
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setShowRejectPanel(false);
+                    setRejectRemarks("");
+                    setPreviewSubmission(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmReject}
+                  className="px-4 py-2 bg-red-600 text-white rounded"
+                >
+                  Submit Rejection
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Rejected Table */}
           {rejectedList.length > 0 && (
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Rejected Tasks</h4>
               <div className="overflow-auto max-h-48">
-                <table className="w-full text-sm border-collapse">
+                <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
+                      <th className="p-2 text-left">Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -489,6 +535,7 @@ export default function EEPHDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">EEPH Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -502,16 +549,16 @@ export default function EEPHDashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Forwarded Tasks</h4>
               <div className="overflow-auto max-h-48">
-                <table className="w-full text-sm border-collapse">
+                <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -536,16 +583,17 @@ export default function EEPHDashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Returned from SEPH</h4>
               <div className="overflow-auto max-h-48">
-                <table className="w-full text-sm border-collapse">
+                <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
+                      <th className="p-2 text-left">Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -558,6 +606,7 @@ export default function EEPHDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">SEPH Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>

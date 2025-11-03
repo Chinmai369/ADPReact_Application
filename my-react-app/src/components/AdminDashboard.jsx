@@ -251,7 +251,7 @@ export default function AdminDashboard({
       alert("Please upload committee and council files before forwarding.");
       return;
     }
-
+  
     const now = new Date().toISOString();
     const forwarded = submissions.map((s) => ({
       ...s,
@@ -262,23 +262,36 @@ export default function AdminDashboard({
       councilResolution: councilFile,
       remarks: "",
     }));
-
+  
     setForwardedSubmissions((fs) => [...forwarded, ...fs]);
-    // Clear admin submissions and totals
+  
+    // ✅ CLEAR ALL FORM DATA (but keep form visible)
+    // IMPORTANT: Clear in correct order to prevent useEffect from repopulating
     setSubmissions([]);
-    // reset CR cycle only if activeCR exists and we've reached target
-    if (activeCR && activeCR.submittedCount >= activeCR.targetCount) {
-      setActiveCR(null);
-      setCrStatus("");
-      setCrNumber("");
-      setCrDate("");
-      setNumberOfWorks("");
-    }
+    setSelection({ year: "", installment: "", grantType: "", program: "" });
+    setWorkType("");
+    setProposalName("");
+    setLocation("");
+    setLatlong("");
+    setEstimatedCost("");
+    setPrioritization("");
+    setWorkImage(null);
+    setDetailedReport(null);
     setCommitteeFile(null);
     setCouncilFile(null);
+    setFormError("");
+    // Clear CR fields FIRST to prevent useEffect from recreating activeCR
+    setCrStatus("");
+    setNumberOfWorks("");
+    setCrNumber("");
+    setCrDate("");
+    setActiveCR(null);
     setSuccessMsg("Forwarded to Commissioner");
+  
+    // Optional: small delay before clearing message
     setTimeout(() => setSuccessMsg(""), 2000);
   }
+  
 
   // UI helpers for disabled state
   const disableCRFields = Boolean(activeCR); // lock CR fields when activeCR exists
@@ -427,6 +440,7 @@ export default function AdminDashboard({
                         value={crDate}
                         onChange={(e) => setCrDate(e.target.value)}
                         disabled={disableCRFields}
+                        max={new Date().toISOString().split('T')[0]}
                         className="mt-1 w-full border p-2 rounded"
                       />
                     </div>
@@ -614,6 +628,7 @@ export default function AdminDashboard({
                     <th className="p-2">Locality</th>
                     <th className="p-2">Priority</th>
                     <th className="p-2">Status</th>
+                    <th className="p-2">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -628,6 +643,7 @@ export default function AdminDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-600">Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                 </tbody>

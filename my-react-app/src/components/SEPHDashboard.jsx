@@ -20,6 +20,7 @@ export default function SEPHDashboard({
   // --- States ---
   const [pendingList, setPendingList] = useState([]);
   const [approvedList, setApprovedList] = useState([]);
+  const [forwardedList, setForwardedList] = useState([]);
   const [rejectedList, setRejectedList] = useState([]);
 
   const [previewSubmission, setPreviewSubmission] = useState(null);
@@ -30,7 +31,20 @@ export default function SEPHDashboard({
   const [approveBanner, setApproveBanner] = useState("");
   const [rejectBanner, setRejectBanner] = useState("");
 
+  const [showForwardPanel, setShowForwardPanel] = useState(false);
+  const [dept, setDept] = useState("");
+  const [section, setSection] = useState("");
+  const [forwardRemarks, setForwardRemarks] = useState("");
+  const [forwardSuccess, setForwardSuccess] = useState("");
+
+  const [showRejectPanel, setShowRejectPanel] = useState(false);
+  const [rejectRemarks, setRejectRemarks] = useState("");
+
   const urlCache = useRef([]);
+
+  const sectionMap = {
+    "Administration": ["ENCPH Department"],
+  };
 
   useEffect(() => {
     const pending = forwardedSubmissions.filter(
@@ -53,6 +67,16 @@ export default function SEPHDashboard({
     setPendingList(pending);
     const approved = forwardedSubmissions.filter((s) => s.status === "SEPH Approved");
     setApprovedList(approved);
+    const forwarded = forwardedSubmissions.filter((s) => {
+      const status = s.status || "";
+      const section = s.forwardedTo?.section || "";
+      return (
+        status.includes("Forwarded to ENCPH") ||
+        status.toLowerCase().includes("forwarded to encph") ||
+        section.toLowerCase().includes("encph")
+      );
+    });
+    setForwardedList(forwarded);
     const rejected = forwardedSubmissions.filter((s) => s.status === "SEPH Rejected");
     setRejectedList(rejected);
   }, [forwardedSubmissions]);
@@ -139,24 +163,85 @@ export default function SEPHDashboard({
 
   // --- Approve ---
   const approve = (subId) => {
-    setForwardedSubmissions((prev) =>
-      prev.map((f) =>
+    setForwardedSubmissions((prev) => {
+      const updated = prev.map((f) =>
         f.id === subId ? { ...f, status: "SEPH Approved" } : f
-      )
-    );
+      );
+      // Find the updated submission to set as preview
+      const updatedSub = updated.find((f) => f.id === subId);
+      if (updatedSub) {
+        setPreviewSubmission(updatedSub);
+      }
+      return updated;
+    });
+    setShowForwardPanel(true);
+    setDept("");
+    setSection("");
+    setForwardRemarks("");
     setApproveBanner("Work approved successfully by SEPH.");
     setTimeout(() => setApproveBanner(""), 1500);
   };
 
   // --- Reject ---
   const reject = (subId) => {
+    const sub = forwardedSubmissions.find((f) => f.id === subId);
+    setPreviewSubmission(sub);
+    setShowRejectPanel(true);
+    setRejectRemarks("");
+  };
+
+  const confirmReject = () => {
+    if (!rejectRemarks || !previewSubmission) {
+      alert("Please enter remarks before rejecting.");
+      return;
+    }
+
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
-        f.id === subId ? { ...f, status: "SEPH Rejected" } : f
+        f.id === previewSubmission.id
+          ? { ...f, status: "SEPH Rejected", remarks: rejectRemarks }
+          : f
       )
     );
     setRejectBanner("Work rejected and sent back to EEPH.");
-    setTimeout(() => setRejectBanner(""), 1500);
+    setTimeout(() => {
+      setRejectBanner("");
+      setShowRejectPanel(false);
+      setPreviewSubmission(null);
+      setRejectRemarks("");
+    }, 1500);
+  };
+
+  // --- Forward ---
+  const forwardApprovedToDept = () => {
+    if (!dept || !section || !previewSubmission)
+      return alert("Select department and section");
+
+    console.log("SEPH Forwarding:", { dept, section, forwardRemarks, previewSubmission });
+    
+    setForwardedSubmissions((prev) => {
+      const updated = prev.map((f) =>
+        f.id === previewSubmission.id
+          ? {
+              ...f,
+              forwardedTo: {
+                department: dept,
+                section,
+                remarks: forwardRemarks,
+              },
+              status: "Forwarded to ENCPH",
+            }
+          : f
+      );
+      console.log("SEPH Updated submissions:", updated);
+      return updated;
+    });
+    setForwardSuccess("Forwarded to ENCPH department successfully!");
+    setTimeout(() => {
+      setForwardSuccess("");
+      setShowForwardPanel(false);
+      setPreviewSubmission(null);
+    }, 1200);
   };
 
   const renderFileLinks = (sub) => {
@@ -202,18 +287,7 @@ export default function SEPHDashboard({
         />
 
         <div className="bg-white p-6 rounded-xl shadow border mt-6">
-          <div className="flex justify-between mb-4">
-            <h2 className="font-semibold text-gray-700">SEPH Dashboard</h2>
-            <button
-              onClick={() => {
-                logout?.();
-                window.location.href = "/";
-              }}
-              className="px-3 py-1 bg-gray-200 rounded text-sm"
-            >
-              Logout
-            </button>
-          </div>
+          <h2 className="font-semibold text-gray-700 mb-4">SEPH Dashboard</h2>
 
           {/* banners */}
           {saveBanner && (
@@ -238,17 +312,17 @@ export default function SEPHDashboard({
             <p className="text-gray-500 text-sm">No items to review.</p>
           ) : (
             <div className="overflow-auto max-h-80">
-              <table className="w-full text-sm border-collapse">
+              <table className="min-w-full text-sm border-collapse">
                 <thead className="bg-gray-100 border-b">
                   <tr>
-                    <th className="p-2 w-16">S.No</th>
-                    <th className="p-2 w-40">Sector</th>
-                    <th className="p-2 w-64">Proposal</th>
-                    <th className="p-2 w-32">Cost</th>
-                    <th className="p-2 w-48">Locality</th>
-                    <th className="p-2 w-20">Priority</th>
-                    <th className="p-2 w-32">Status</th>
-                    <th className="p-2 w-40">Actions</th>
+                    <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                    <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                    <th className="p-2 text-left">Proposal</th>
+                    <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                    <th className="p-2 text-left whitespace-nowrap">Locality</th>
+                    <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                    <th className="p-2 text-left whitespace-nowrap">Status</th>
+                    <th className="p-2 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -260,7 +334,7 @@ export default function SEPHDashboard({
                       <td className="p-2">{fmtINR(s.cost)}</td>
                       <td className="p-2">{s.locality}</td>
                       <td className="p-2">{s.priority}</td>
-                      <td className="p-2">{s.status}</td>
+                      <td className="p-2">Pending</td>
                       <td className="p-2">
                         <div className="flex gap-2">
                           <button
@@ -300,21 +374,115 @@ export default function SEPHDashboard({
             </div>
           )}
 
+          {/* Forward panel */}
+          {showForwardPanel && previewSubmission && (
+            <div className="bg-white border rounded-xl shadow p-5 mt-6">
+              <h4 className="font-semibold mb-3">
+                Forward Approved Work to Department
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm text-gray-600">Department</label>
+                  <select
+                    className="w-full border p-2 rounded mt-1"
+                    value={dept}
+                    onChange={(e) => setDept(e.target.value)}
+                  >
+                    <option value="">Select department</option>
+                    {Object.keys(sectionMap).map((d) => (
+                      <option key={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">Section</label>
+                  <select
+                    className="w-full border p-2 rounded mt-1"
+                    value={section}
+                    onChange={(e) => setSection(e.target.value)}
+                    disabled={!dept}
+                  >
+                    <option value="">Select section</option>
+                    {dept &&
+                      sectionMap[dept].map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">Remarks</label>
+                  <input
+                    className="w-full border p-2 rounded mt-1"
+                    value={forwardRemarks}
+                    onChange={(e) => setForwardRemarks(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={forwardApprovedToDept}
+                  className="px-4 py-2 bg-green-600 text-white rounded"
+                >
+                  Forward
+                </button>
+              </div>
+              {forwardSuccess && (
+                <div className="mt-2 text-green-700 text-sm">
+                  {forwardSuccess}
+                </div>
+              )}
+            </div>
+          )}
+
+          {showRejectPanel && previewSubmission && (
+            <div className="bg-white border rounded-xl shadow p-5 mt-6">
+              <h4 className="font-semibold mb-3">Reject Work</h4>
+              <div>
+                <label className="text-sm text-gray-600">Remarks (Required)</label>
+                <textarea
+                  className="w-full border p-2 rounded mt-1"
+                  rows={4}
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="Please enter reason for rejection..."
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setShowRejectPanel(false);
+                    setRejectRemarks("");
+                    setPreviewSubmission(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmReject}
+                  className="px-4 py-2 bg-red-600 text-white rounded"
+                >
+                  Submit Rejection
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Approved Table */}
           {approvedList.length > 0 && (
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Approved by SEPH</h4>
               <div className="overflow-auto max-h-48">
-               <table className="w-full text-sm border-collapse">
+               <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -340,16 +508,17 @@ export default function SEPHDashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Rejected by SEPH</h4>
               <div className="overflow-auto max-h-48">
-               <table className="w-full text-sm border-collapse">
+               <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left whitespace-nowrap">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
+                      <th className="p-2 text-left">Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -362,6 +531,42 @@ export default function SEPHDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">SEPH Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Forwarded Table */}
+          {forwardedList.length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-semibold mb-2 text-sm">Forwarded Tasks</h4>
+              <div className="overflow-auto max-h-48">
+                <table className="min-w-full text-sm border-collapse">
+                  <thead className="bg-gray-100 border-b">
+                    <tr>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forwardedList.map((s, i) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2">{s.proposal}</td>
+                        <td className="p-2">{fmtINR(s.cost)}</td>
+                        <td className="p-2">{s.locality}</td>
+                        <td className="p-2">{s.priority}</td>
+                        <td className="p-2 text-blue-700">{s.status}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -374,16 +579,17 @@ export default function SEPHDashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Returned from ENCPH</h4>
               <div className="overflow-auto max-h-48">
-                <table className="w-full text-sm border-collapse">
+                <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="p-2 w-16">S.No</th>
-                      <th className="p-2 w-40">Sector</th>
-                      <th className="p-2 w-64">Proposal</th>
-                      <th className="p-2 w-32">Cost</th>
-                      <th className="p-2 w-48">Locality</th>
-                      <th className="p-2 w-20">Priority</th>
-                      <th className="p-2 w-32">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap">Sector</th>
+                      <th className="p-2 text-left">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap">Cost</th>
+                      <th className="p-2 text-left whitespace-nowrap">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap">Status</th>
+                      <th className="p-2 text-left">Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -396,6 +602,7 @@ export default function SEPHDashboard({
                         <td className="p-2">{s.locality}</td>
                         <td className="p-2">{s.priority}</td>
                         <td className="p-2 text-red-700">ENCPH Rejected</td>
+                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
