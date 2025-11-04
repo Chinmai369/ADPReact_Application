@@ -2,7 +2,7 @@ import Header from "./Header";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-export default function ENCPHDashboard({
+export default function CDMADashboard({
   user,
   logout,
   forwardedSubmissions,
@@ -55,22 +55,22 @@ export default function ENCPHDashboard({
         const status = (s.status || "").trim();
         const section = (s.forwardedTo?.section || "").trim();
         
-        // Exclude already processed tasks
-        const isProcessed = ["Forwarded to CDMA", "CDMA Approved", "ENCPH Rejected"].includes(status);
+        // Show only tasks forwarded from ENCPH to CDMA
+        const isProcessed = ["CDMA Approved", "CDMA Rejected"].includes(status);
         if (isProcessed) return false;
         
-        // Match status or section to ENCPH
+        // Match status or section to CDMA
         const statusLower = status.toLowerCase();
-        if (statusLower.includes("forwarded to encph")) return true;
-        if (section.toLowerCase().includes("encph")) return true;
-        if (statusLower.startsWith("forwarded to") && section.toLowerCase().includes("encph")) return true;
+        if (statusLower.includes("forwarded to cdma")) return true;
+        if (section.toLowerCase().includes("cdma")) return true;
+        if (statusLower.startsWith("forwarded to") && section.toLowerCase().includes("cdma")) return true;
         return false;
       }
     );
     setPendingList(pending);
-    const approved = forwardedSubmissions.filter((s) => s.status === "Forwarded to CDMA" || s.status === "CDMA Approved");
+    const approved = forwardedSubmissions.filter((s) => s.status === "CDMA Approved");
     setApprovedList(approved);
-    const rejected = forwardedSubmissions.filter((s) => s.status === "ENCPH Rejected");
+    const rejected = forwardedSubmissions.filter((s) => s.status === "CDMA Rejected");
     setRejectedList(rejected);
   }, [forwardedSubmissions]);
 
@@ -128,35 +128,9 @@ export default function ENCPHDashboard({
     // Get fresh submission from forwardedSubmissions to ensure we have all files
     const freshSub = forwardedSubmissions.find((f) => f.id === sub.id) || sub;
     
-    console.log("🔍 ENCPH openPreview - Original sub:", sub);
-    console.log("🔍 ENCPH openPreview - Fresh sub from array:", freshSub);
-    console.log("🔍 ENCPH openPreview - Files check:", {
-      workImage: freshSub.workImage instanceof File,
-      detailedReport: freshSub.detailedReport instanceof File,
-      committeeReport: freshSub.committeeReport instanceof File,
-      councilResolution: freshSub.councilResolution instanceof File,
-      workImageExists: !!freshSub.workImage,
-      detailedReportExists: !!freshSub.detailedReport,
-      committeeReportExists: !!freshSub.committeeReport,
-      councilResolutionExists: !!freshSub.councilResolution,
-    });
-    console.log("🔍 ENCPH openPreview - File Details:", {
-      workImage: freshSub.workImage ? (freshSub.workImage instanceof File ? `File: ${freshSub.workImage.name}` : typeof freshSub.workImage) : 'null',
-      detailedReport: freshSub.detailedReport ? (freshSub.detailedReport instanceof File ? `File: ${freshSub.detailedReport.name}` : typeof freshSub.detailedReport) : 'null',
-      committeeReport: freshSub.committeeReport ? (freshSub.committeeReport instanceof File ? `File: ${freshSub.committeeReport.name}` : typeof freshSub.committeeReport) : 'null',
-      councilResolution: freshSub.councilResolution ? (freshSub.councilResolution instanceof File ? `File: ${freshSub.councilResolution.name}` : typeof freshSub.councilResolution) : 'null',
-    });
-    console.log("🔍 ENCPH openPreview - Original sub Files:", {
-      workImage: sub.workImage ? (sub.workImage instanceof File ? `File: ${sub.workImage.name}` : typeof sub.workImage) : 'null',
-      detailedReport: sub.detailedReport ? (sub.detailedReport instanceof File ? `File: ${sub.detailedReport.name}` : typeof sub.detailedReport) : 'null',
-      committeeReport: sub.committeeReport ? (sub.committeeReport instanceof File ? `File: ${sub.committeeReport.name}` : typeof sub.committeeReport) : 'null',
-      councilResolution: sub.councilResolution ? (sub.councilResolution instanceof File ? `File: ${sub.councilResolution.name}` : typeof sub.councilResolution) : 'null',
-    });
-    
-    // Ensure we preserve files - check if files exist in original sub and merge
+    // Ensure we preserve files
     const mergedSub = {
       ...freshSub,
-      // Preserve files from original if they exist there but not in fresh
       workImage: freshSub.workImage || sub.workImage || null,
       detailedReport: freshSub.detailedReport || sub.detailedReport || null,
       committeeReport: freshSub.committeeReport || sub.committeeReport || null,
@@ -205,7 +179,7 @@ export default function ENCPHDashboard({
     setModalOpen(false);
   };
 
-  // --- Approve and Forward to CDMA ---
+  // --- Approve ---
   const approve = (subId) => {
     const sub = forwardedSubmissions.find((f) => f.id === subId);
     if (!sub) return;
@@ -223,22 +197,13 @@ export default function ENCPHDashboard({
     
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
-        f.id === previewSubmission.id
-          ? {
-              ...f,
-              status: "Forwarded to CDMA",
-              forwardedTo: {
-                department: "Administration",
-                section: "CDMA",
-                remarks: approveRemarks || "Approved by ENCPH and forwarded to CDMA for final approval",
-              },
-              remarks: approveRemarks || "",
-            }
+        f.id === previewSubmission.id 
+          ? { ...f, status: "CDMA Approved", remarks: approveRemarks || "" } 
           : f
       )
     );
     setShowApprovePanel(false);
-    setApproveBanner("Work approved by ENCPH and forwarded to CDMA.");
+    setApproveBanner("Work approved successfully by CDMA.");
     setTimeout(() => setApproveBanner(""), 1500);
     setPreviewSubmission(null);
     setApproveRemarks("");
@@ -266,11 +231,11 @@ export default function ENCPHDashboard({
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
         f.id === previewSubmission.id
-          ? { ...f, status: "ENCPH Rejected", remarks: rejectRemarks, rejectedBy: "ENCPH" }
+          ? { ...f, status: "CDMA Rejected", remarks: rejectRemarks, rejectedBy: "CDMA" }
           : f
       )
     );
-    setRejectBanner("Work rejected and sent back to SEPH.");
+    setRejectBanner("Work rejected and sent back to ENCPH.");
     setTimeout(() => {
       setRejectBanner("");
       setShowRejectPanel(false);
@@ -279,35 +244,8 @@ export default function ENCPHDashboard({
     }, 1500);
   };
 
-  const renderFileLinks = (sub) => {
-    const files = [];
-    if (sub.detailedReport)
-      files.push({ label: "Detailed Report", file: sub.detailedReport });
-    if (sub.committeeReport)
-      files.push({ label: "Committee Report", file: sub.committeeReport });
-    if (sub.councilResolution)
-      files.push({ label: "Council Resolution", file: sub.councilResolution });
-
-    return files.map((f, i) => {
-      const url = URL.createObjectURL(f.file);
-      urlCache.current.push(url);
-      return (
-        <div key={i}>
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-600 underline"
-          >
-            {f.label}
-          </a>
-        </div>
-      );
-    });
-  };
-
   const isActionDisabled = (status) =>
-    ["Forwarded to CDMA", "CDMA Approved", "ENCPH Rejected"].includes(status);
+    ["CDMA Approved", "CDMA Rejected"].includes(status);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -322,7 +260,7 @@ export default function ENCPHDashboard({
         />
 
         <div className="bg-white p-6 rounded-xl shadow border mt-6">
-          <h2 className="font-semibold text-gray-700 mb-4">ENCPH Dashboard</h2>
+          <h2 className="font-semibold text-gray-700 mb-4">CDMA Dashboard</h2>
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
@@ -341,9 +279,8 @@ export default function ENCPHDashboard({
                 {forwardedSubmissions.filter(s => {
                   const status = (s.status || "").trim().toLowerCase();
                   const section = (s.forwardedTo?.section || "").trim().toLowerCase();
-                  return status.includes("forwarded to encph") || section.includes("encph") || 
-                         status.includes("forwarded to cdma") || status === "cdma approved" ||
-                         status === "encph rejected";
+                  return status.includes("forwarded to cdma") || section.includes("cdma") || 
+                         status === "cdma approved" || status === "cdma rejected";
                 }).length}
               </div>
             </div>
@@ -356,11 +293,11 @@ export default function ENCPHDashboard({
               </div>
             </div>
 
-            {/* No. of Forwarded */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-              <div className="text-xs text-indigo-600 font-medium mb-1">No. of Forwarded</div>
-              <div className="text-xl font-bold text-indigo-700">
-                {forwardedSubmissions.filter(s => s.status === "Forwarded to CDMA" || s.status === "CDMA Approved").length}
+            {/* No. of Approved */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="text-xs text-green-600 font-medium mb-1">No. of Approved</div>
+              <div className="text-xl font-bold text-green-700">
+                {approvedList.length}
               </div>
             </div>
 
@@ -376,7 +313,7 @@ export default function ENCPHDashboard({
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
               <div className="text-xs text-orange-600 font-medium mb-1">Sent back REJECTED LIST</div>
               <div className="text-xl font-bold text-orange-700">
-                {forwardedSubmissions.filter(s => s.status === "CDMA Rejected").length}
+                0
               </div>
             </div>
           </div>
@@ -399,7 +336,7 @@ export default function ENCPHDashboard({
           )}
 
           {/* Pending table */}
-          <h3 className="text-sm text-gray-600 mb-2">Pending Works</h3>
+          <h3 className="text-sm text-gray-600 mb-2">Pending Works (Forwarded from ENCPH)</h3>
           {pendingList.length === 0 ? (
             <p className="text-gray-500 text-sm">No items to review.</p>
           ) : (
@@ -446,7 +383,7 @@ export default function ENCPHDashboard({
                           <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
                         ) : (<span className="text-gray-400">No report</span>)}
                       </td>
-                      <td className="p-2 text-xs">Pending</td>
+                      <td className="p-2 text-xs">Forwarded from ENCPH</td>
                       <td className="p-2">
                         <div className="flex gap-2">
                           <button
@@ -459,7 +396,7 @@ export default function ENCPHDashboard({
                             onClick={() => approve(s.id)}
                             disabled={isActionDisabled(s.status)}
                             className={`px-2 py-1 text-xs rounded ${
-                              ["Forwarded to CDMA", "CDMA Approved"].includes(s.status)
+                              s.status === "CDMA Approved"
                                 ? "bg-gray-300"
                                 : "bg-green-600 text-white"
                             }`}
@@ -468,9 +405,9 @@ export default function ENCPHDashboard({
                           </button>
                           <button
                             onClick={() => reject(s.id)}
-                            disabled={s.status === "ENCPH Rejected"}
+                            disabled={s.status === "CDMA Rejected"}
                             className={`px-2 py-1 text-xs rounded ${
-                              s.status === "ENCPH Rejected"
+                              s.status === "CDMA Rejected"
                                 ? "bg-gray-300"
                                 : "bg-red-600 text-white"
                             }`}
@@ -537,7 +474,7 @@ export default function ENCPHDashboard({
                     onClick={confirmApprove}
                     className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                   >
-                    Confirm Approval & Forward to CDMA
+                    Confirm Approval
                   </button>
                 </div>
               </div>
@@ -606,7 +543,7 @@ export default function ENCPHDashboard({
           {/* Approved Table */}
           {approvedList.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Approved by ENCPH</h4>
+              <h4 className="font-semibold mb-2 text-sm">Approved by CDMA</h4>
               <div className="overflow-auto max-h-48">
                <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
@@ -649,7 +586,7 @@ export default function ENCPHDashboard({
                             <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
                           ) : (<span className="text-gray-400">No report</span>)}
                         </td>
-                        <td className="p-2 text-xs text-green-700">{s.status === "CDMA Approved" ? "CDMA Approved" : "Forwarded to CDMA"}</td>
+                        <td className="p-2 text-xs text-green-700">CDMA Approved</td>
                       </tr>
                     ))}
                   </tbody>
@@ -661,7 +598,7 @@ export default function ENCPHDashboard({
           {/* Rejected Table */}
           {rejectedList.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Rejected by ENCPH</h4>
+              <h4 className="font-semibold mb-2 text-sm">Rejected by CDMA</h4>
               <div className="overflow-auto max-h-48">
                <table className="min-w-full text-sm border-collapse">
                   <thead className="bg-gray-100 border-b">
@@ -705,7 +642,7 @@ export default function ENCPHDashboard({
                             <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
                           ) : (<span className="text-gray-400">No report</span>)}
                         </td>
-                        <td className="p-2 text-xs text-red-700">Rejected by ENCPH</td>
+                        <td className="p-2 text-xs text-red-700">Rejected by CDMA</td>
                         <td className="p-2 text-xs text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                       </tr>
                     ))}
@@ -897,7 +834,7 @@ export default function ENCPHDashboard({
 
                 <div className="mt-4">
                   <label className="text-sm text-gray-600">
-                    ENCPH Remarks
+                    CDMA Remarks
                   </label>
                   <textarea
                     className="w-full border p-2 rounded mt-1"
@@ -924,3 +861,4 @@ export default function ENCPHDashboard({
     </div>
   );
 }
+

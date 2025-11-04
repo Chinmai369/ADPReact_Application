@@ -1,56 +1,66 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../services/api"; // ✅ Adjust path as needed
-
-// const CREDENTIALS = {
-//   admin: { username: "admin", password: "admin123", role: "admin" },
-//   commissioner: { username: "commissioner", password: "comm123", role: "commissioner" },
-//   eeph: { username: "eeph", password: "eeph123", role: "eeph" },
-//   seph: { username: "seph", password: "seph123", role: "seph" },
-//   encph: { username: "encph", password: "encph123", role: "encph" },
-// };
+import { login } from "../services/api";
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async () => {
     if (!username || !password) {
       setErr("Please enter both username and password");
+      console.log("⚠️ LOGIN: Validation failed - missing credentials");
       return;
     }
 
-    const result = await loginUser(username, password);
+    setErr("");
+    setLoading(true);
 
-    if (result.success) {
-      const { role, username } = result;
-      onLogin({ role, username }); // ✅ Update app state
+    try {
+      // Call backend API for authentication
+      const response = await login(username, password);
 
-      // ✅ Redirect based on user role
-      switch (role) {
-        case "engg":
-          navigate("/admin");
-          break;
-        case "Commissioner":
-          navigate("/commissioner");
-          break;
-        case "eeph":
-          navigate("/eeph");
-          break;
-        case "seph":
-          navigate("/seph");
-          break;
-        case "encph":
-          navigate("/encph");
-          break;
-        default:
-          navigate("/");
-          break;
+      if (response.success && response.user) {
+        const { role, username: user } = response.user;
+        
+        console.log("🔄 LOGIN COMPONENT: Updating app state and redirecting...");
+        console.log("   - Redirecting to:", role === "engineer" ? "/admin" : `/${role}`);
+        
+        onLogin({ role, username: user }); // ✅ Update app state
+
+        // ✅ Redirect based on user role
+        switch (role) {
+          case "engineer":
+            navigate("/admin");
+            break;
+          case "Commissioner":
+            navigate("/commissioner");
+            break;
+          case "eeph":
+            navigate("/eeph");
+            break;
+          case "seph":
+            navigate("/seph");
+            break;
+          case "encph":
+            navigate("/encph");
+            break;
+          case "cdma":
+            navigate("/cdma");
+            break;
+          default:
+            navigate("/");
+            break;
+        }
       }
-    } else {
-      setErr(result.message || "Invalid username or password");
+    } catch (error) {
+      setErr(error.message || "Invalid username or password");
+      console.log("❌ LOGIN COMPONENT: Failed to complete login");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,6 +112,11 @@ export default function Login({ onLogin }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !loading) {
+                  handleLogin();
+                }
+              }}
               className="mt-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               placeholder="Enter password"
               autoComplete="current-password"
@@ -122,9 +137,10 @@ export default function Login({ onLogin }) {
           {/* Login Button */}
           <button
             onClick={handleLogin}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-md transition-all"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow-md transition-all"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </div>
       </div>

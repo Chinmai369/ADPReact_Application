@@ -1,5 +1,5 @@
 import Header from "./Header";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
 
 const TOTAL_BUDGET = 1000000;
@@ -7,6 +7,18 @@ const fmtINR = (n) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
     .format(n)
     .replace("INR", "₹");
+
+// Helper function to get file URL (handles both File objects and URL strings)
+const getFileUrl = (file) => {
+  if (!file) return null;
+  if (file instanceof File) {
+    return URL.createObjectURL(file);
+  }
+  if (typeof file === 'string') {
+    return file;
+  }
+  return null;
+};
 
 export default function AdminDashboard({
   user,
@@ -87,6 +99,12 @@ export default function AdminDashboard({
   const [committeeFile, setCommitteeFile] = useState(null);
   const [councilFile, setCouncilFile] = useState(null);
 
+  // Refs for file inputs to reset them
+  const workImageInputRef = useRef(null);
+  const detailedReportInputRef = useRef(null);
+  const committeeFileInputRef = useRef(null);
+  const councilFileInputRef = useRef(null);
+
   // local admin submissions (not forwarded yet)
   const [submissions, setSubmissions] = useState([]);
   const totalSubmittedCost = useMemo(() => submissions.reduce((s, it) => s + Number(it.cost || 0), 0), [submissions]);
@@ -98,6 +116,9 @@ export default function AdminDashboard({
   // active CR cycle tracking (null when none)
   const [activeCR, setActiveCR] = useState(null);
   // The activeCR shape: { targetCount: number, crNumber, crDate, submittedCount }
+
+  // Key to force file input reset
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   // Derived states
   const isSelectionReady = selection.year && selection.installment && selection.grantType && selection.program;
@@ -138,6 +159,9 @@ export default function AdminDashboard({
     }
   }, [activeCR]);
 
+  // Track if we're editing (to count it in submissions length for Forward button)
+  const [isEditing, setIsEditing] = useState(false);
+
   // Helper: reset the form (optionally keep numberOfWorks when activeCR present)
   function resetForm(keepNumberOfWorks = false) {
     setWorkType("");
@@ -150,6 +174,8 @@ export default function AdminDashboard({
     setDetailedReport(null);
     setCrStatus((s) => (activeCR ? "CR" : "")); // keep CR checked if activeCR exists
     if (!keepNumberOfWorks) setNumberOfWorks("");
+    // Reset file input elements by changing key to force re-render
+    setFileInputKey(prev => prev + 1);
     // Do not clear activeCR here
   }
 
@@ -199,6 +225,10 @@ export default function AdminDashboard({
     setSuccessMsg("Submitted successfully.");
     setTimeout(() => setSuccessMsg(""), 3000);
 
+    // Clear editing state AFTER adding submission back
+    // This ensures the button check accounts for the restored submission
+    setIsEditing(false);
+
     // if activeCR exists, keep numberOfWorks; else clear
     resetForm(Boolean(activeCR));
   }
@@ -219,7 +249,9 @@ export default function AdminDashboard({
     setCrNumber(s.crNumber || "");
     setCrDate(s.crDate || "");
     setCrStatus(s.crNumber ? "CR" : "IA");
-    // remove from submissions
+    // Mark as editing instead of removing from submissions
+    setIsEditing(true);
+    // remove from submissions (but we'll count it separately for the button)
     setSubmissions((arr) => arr.filter((_, i) => i !== index));
   }
 
@@ -239,12 +271,14 @@ export default function AdminDashboard({
   // Forward to commissioner
   function handleForwardToCommissioner() {
     const reqCount = Number(numberOfWorks || 0);
+    const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
+    
     if (!Number.isInteger(reqCount) || reqCount < 1) {
       alert("Please enter valid Number of Works (>=1).");
       return;
     }
-    if (submissions.length < reqCount) {
-      alert(`Please submit ${reqCount - submissions.length} more work(s) before forwarding.`);
+    if (totalSubmissions < reqCount) {
+      alert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
       return;
     }
     if (!committeeFile || !councilFile) {
@@ -253,7 +287,29 @@ export default function AdminDashboard({
     }
   
     const now = new Date().toISOString();
-    const forwarded = submissions.map((s) => ({
+    
+    // Build the list of submissions to forward
+    let submissionsToForward = [...submissions];
+    
+    // If editing, include the current form data as a submission
+    if (isEditing) {
+      const editedSub = {
+        id: Date.now() + Math.random(),
+        sector: workType,
+        proposal: proposalName,
+        locality: location,
+        latlong,
+        cost: Number(estimatedCost),
+        priority: Number(prioritization),
+        crNumber: crStatus === "CR" ? crNumber : "",
+        crDate: crStatus === "CR" ? crDate : "",
+        workImage,
+        detailedReport,
+      };
+      submissionsToForward.push(editedSub);
+    }
+    
+    const forwarded = submissionsToForward.map((s) => ({
       ...s,
       id: Date.now() + Math.random(),
       status: "Pending Review",
@@ -286,6 +342,7 @@ export default function AdminDashboard({
     setCrNumber("");
     setCrDate("");
     setActiveCR(null);
+    setIsEditing(false); // Clear editing state after forwarding
     setSuccessMsg("Forwarded to Commissioner");
   
     // Optional: small delay before clearing message
@@ -311,6 +368,50 @@ export default function AdminDashboard({
             navigate("/");
           }}
         />
+
+        {/* Statistics Cards */}
+        <div className="bg-white rounded-xl shadow p-6 border mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {/* No. of CR's */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
+              <div className="text-xl font-bold text-blue-700">
+                {new Set([
+                  ...submissions.filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber),
+                  ...(forwardedSubmissions || []).filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber)
+                ]).size}
+              </div>
+            </div>
+
+            {/* No. of Works */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+              <div className="text-xs text-purple-600 font-medium mb-1">No. of Works</div>
+              <div className="text-xl font-bold text-purple-700">
+                {submissions.length + 
+                 (forwardedSubmissions || []).filter(s => 
+                   s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || 
+                   s.status === "Approved" || s.status === "CDMA Approved" || s.status === "Rejected"
+                 ).length}
+              </div>
+            </div>
+
+            {/* No. of Forwarded */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+              <div className="text-xs text-indigo-600 font-medium mb-1">No. of Forwarded</div>
+              <div className="text-xl font-bold text-indigo-700">
+                {(forwardedSubmissions || []).filter(s => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved").length}
+              </div>
+            </div>
+
+            {/* Sent back REJECTED LIST */}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <div className="text-xs text-orange-600 font-medium mb-1">Sent back REJECTED LIST</div>
+              <div className="text-xl font-bold text-orange-700">
+                {(forwardedSubmissions || []).filter(s => s.status === "Rejected" && s.rejectedBy === "Commissioner").length}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* selection chips */}
         <div className="mb-4 flex flex-wrap gap-2">
@@ -390,7 +491,7 @@ export default function AdminDashboard({
                 </div>
                 <div>
                   <div className="text-sm text-gray-600">Remaining</div>
-                  <div className={`font-bold text-lg ${remainingBudget === 0 ? "text-red-500" : "text-green-500"}`}>
+                  <div className="font-bold text-lg text-red-500">
                     {fmtINR(remainingBudget)}
                   </div>
                 </div>
@@ -403,7 +504,7 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-600">CR Status</label>
+                  <label className="block text-sm text-gray-600">CR Status</label>
                   <div className="flex gap-4 mt-2">
                     <label className="inline-flex items-center gap-2">
                       <input
@@ -424,7 +525,7 @@ export default function AdminDashboard({
                 {crStatus === "CR" && (
                   <>
                     <div>
-                      <label className="text-sm text-gray-600">CR Number</label>
+                      <label className="block text-sm text-gray-600">CR Number</label>
                       <input
                         value={crNumber}
                         onChange={(e) => setCrNumber(e.target.value)}
@@ -434,7 +535,7 @@ export default function AdminDashboard({
                     </div>
 
                     <div>
-                      <label className="text-sm text-gray-600">CR Date</label>
+                      <label className="block text-sm text-gray-600">CR Date</label>
                       <input
                         type="date"
                         value={crDate}
@@ -446,7 +547,7 @@ export default function AdminDashboard({
                     </div>
 
                     <div>
-                      <label className="text-sm text-gray-600">Number of Works</label>
+                      <label className="block text-sm text-gray-600">Number of Works</label>
                       <input
                         type="number"
                         min="1"
@@ -463,7 +564,7 @@ export default function AdminDashboard({
                 )}
 
                 <div>
-                  <label className="text-sm text-gray-600">Name of the Sector</label>
+                  <label className="block text-sm text-gray-600">Name of the Sector</label>
                   <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
                     <option value="">Select type of work</option>
                     <option>SWM/LQM</option>
@@ -479,117 +580,187 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600">Name of the Proposals</label>
+                  <label className="block text-sm text-gray-600">Name of the Proposals</label>
                   <input value={proposalName} onChange={(e) => setProposalName(e.target.value)} className="mt-1 w-full border p-2 rounded" />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="text-sm text-gray-600">Locality</label>
+                  <label className="block text-sm text-gray-600">Locality</label>
                   <textarea value={location} onChange={(e) => setLocation(e.target.value)}  rows={1} className="mt-1 w-full border p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600">Latitude/Longitude or Google Maps URL</label>
+                  <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL</label>
                   <textarea value={latlong} onChange={(e) => setLatlong(e.target.value)} className="mt-1 w-full border p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600">Estimated Cost</label>
+                  <label className="block text-sm text-gray-600">Estimated Cost</label>
                   <input type="number" value={estimatedCost} onChange={(e) => setEstimatedCost(e.target.value)} className="mt-1 w-full border p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600">Prioritization</label>
+                  <label className="block text-sm text-gray-600">Prioritization</label>
                   <input type="number" value={prioritization} onChange={(e) => setPrioritization(e.target.value)} className="mt-1 w-full border p-2 rounded" />
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600">Upload work Image</label>
-                  <input type="file" accept="image/*" onChange={(e) => setWorkImage(e.target.files?.[0] || null)} className="mt-1" />
+                  <label className="block text-sm text-gray-600">Upload work Image</label>
+                  {workImage && (
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                      <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
+                      {workImage instanceof File && (
+                        <div className="mt-2">
+                          <img 
+                            src={URL.createObjectURL(workImage)} 
+                            alt="Preview" 
+                            className="max-w-full h-32 object-contain rounded border"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <input 
+                    key={`workImage-${fileInputKey}`}
+                    type="file" 
+                    accept="image/*" 
+                    ref={workImageInputRef}
+                    onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
+                    className="mt-1 w-full border p-2 rounded" 
+                  />
                 </div>
 
-                {crStatus === "CR" && (
-                  <div>
-                    <label className="text-sm text-gray-600">Detailed Estimation Report</label>
-                    <input type="file" accept=".pdf,image/*" onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} className="mt-1" />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm text-gray-600">Detailed Estimation Report</label>
+                  {detailedReport && (
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                      <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
+                      {detailedReport instanceof File && (
+                        <div className="mt-2">
+                          <a 
+                            href={URL.createObjectURL(detailedReport)} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            View Report
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <input 
+                    key={`detailedReport-${fileInputKey}`}
+                    type="file" 
+                    accept=".pdf,image/*" 
+                    ref={detailedReportInputRef}
+                    onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
+                    className="mt-1 w-full border p-2 rounded" 
+                  />
+                </div>
               </div>
 
               {formError && <div className="mt-4 text-red-600">{formError}</div>}
 
-              <div className="flex justify-end gap-3 mt-4">
+              <div className="flex justify-center gap-3 mt-4">
                 <button onClick={handleSubmitProposal} className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
               </div>
 
+              <div className="border-b border-gray-300 mt-4"></div>
+
               {successMsg && <div className="mt-3 p-2 bg-green-100 text-green-700 rounded text-sm">{successMsg}</div>}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm text-gray-600">Committee Report</label>
+                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600">Council Resolution Report</label>
+                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  onClick={handleForwardToCommissioner}
+                  disabled={!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile}
+                  className={`px-4 py-2 rounded ${(!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile) ? "bg-gray-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                >
+                  Forward to Commissioner
+                </button>
+              </div>
             </div>
 
             {/* Post submit + signatures + merged table */}
             <div className="bg-white rounded-xl shadow p-6 border">
               <div className="text-sm font-medium mb-3">Signatures and Submission</div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="text-sm text-gray-600">Committee Report</label>
-                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="mt-1" />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-600">Council Resolution Report</label>
-                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="mt-1" />
-                </div>
-              </div>
-
-              <div className="overflow-auto max-h-72">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="text-left text-sm border-b">
-                      <th className="p-2">S.No</th>
-                      <th className="p-2">Sector</th>
-                      <th className="p-2">Proposal</th>
-                      <th className="p-2 text-right">Estimated cost</th>
-                      <th className="p-2">Locality</th>
-                      <th className="p-2">Priority</th>
-                      <th className="p-2">Image</th>
-                      <th className="p-2">Report</th>
-                      <th className="p-2">Actions</th>
+              <div className="overflow-auto max-h-96">
+                <table className="w-full border-collapse text-xs">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr className="text-left text-xs border-b font-semibold">
+                      <th className="p-2 whitespace-nowrap">S.No</th>
+                      <th className="p-2 whitespace-nowrap">CR Number</th>
+                      <th className="p-2 whitespace-nowrap">CR Date</th>
+                      <th className="p-2 whitespace-nowrap">Sector</th>
+                      <th className="p-2 whitespace-nowrap">Proposal</th>
+                      <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                      <th className="p-2 whitespace-nowrap">Locality</th>
+                      <th className="p-2 whitespace-nowrap">Lat/Long</th>
+                      <th className="p-2 whitespace-nowrap text-center">Priority</th>
+                      <th className="p-2 whitespace-nowrap">Work Image</th>
+                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {groupedKeys.length === 0 ? (
-                      <tr><td className="p-4 text-sm text-gray-500" colSpan={9}>No submissions yet.</td></tr>
+                      <tr><td className="p-4 text-sm text-gray-500" colSpan={12}>No submissions yet.</td></tr>
                     ) : (
                       groupedKeys.map((sector, groupIdx) => {
                         const group = groupedSubmissions[sector];
                         return group.map((item, idxInGroup) => {
                           const isFirst = idxInGroup === 0;
                           return (
-                            <tr key={item.__idx} className="border-b align-top">
+                            <tr key={item.__idx} className="border-b align-top hover:bg-gray-50">
                               {/* S.No and sector only on first row of group */}
                               <td className="p-2 align-top">
                                 {isFirst ? groupIdx + 1 : null}
                               </td>
                               <td className="p-2 align-top">
+                                {isFirst ? (item.crNumber || "-") : null}
+                              </td>
+                              <td className="p-2 align-top">
+                                {isFirst ? (item.crDate || "-") : null}
+                              </td>
+                              <td className="p-2 align-top">
                                 {isFirst ? sector : null}
                               </td>
-
-                              <td className="p-2 align-top">{item.proposal}</td>
+                              <td className="p-2 align-top max-w-xs truncate" title={item.proposal}>
+                                {item.proposal}
+                              </td>
                               <td className="p-2 align-top text-right">{fmtINR(Math.round(item.cost))}</td>
-                              <td className="p-2 align-top">{item.locality}</td>
+                              <td className="p-2 align-top max-w-xs truncate" title={item.locality}>
+                                {item.locality}
+                              </td>
+                              <td className="p-2 align-top max-w-xs truncate" title={item.latlong || "-"}>
+                                {item.latlong ? (item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong) : "-"}
+                              </td>
                               <td className="p-2 align-top text-center">{item.priority}</td>
                               <td className="p-2 align-top">
                                 {item.workImage ? (
-                                  <img src={URL.createObjectURL(item.workImage)} alt="" className="w-12 h-12 object-cover rounded cursor-pointer" />
-                                ) : <span className="text-gray-400 text-sm">No image</span>}
+                                  <a href={getFileUrl(item.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                ) : (<span className="text-gray-400 text-xs">No image</span>)}
                               </td>
                               <td className="p-2 align-top">
                                 {item.detailedReport ? (
-                                  <a href={URL.createObjectURL(item.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-sm">View</a>
-                                ) : (<span className="text-gray-400 text-sm">No report</span>)}
+                                  <a href={getFileUrl(item.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                ) : (<span className="text-gray-400 text-xs">No report</span>)}
                               </td>
                               <td className="p-2 align-top">
-                                <div className="flex gap-2">
-                                  <button onClick={() => handleEdit(item.__idx)} className="px-2 py-1 bg-indigo-600 text-white text-sm rounded">Edit</button>
+                                <div className="flex gap-1">
+                                  <button onClick={() => handleEdit(item.__idx)} className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Edit</button>
                                 </div>
                               </td>
                             </tr>
@@ -600,16 +771,132 @@ export default function AdminDashboard({
                   </tbody>
                 </table>
               </div>
-
-              <div className="flex justify-end gap-3 mt-4">
-                <button
-                  onClick={handleForwardToCommissioner}
-                  disabled={!numberOfWorks || submissions.length < Number(numberOfWorks) || !committeeFile || !councilFile}
-                  className={`px-4 py-2 rounded ${(!numberOfWorks || submissions.length < Number(numberOfWorks) || !committeeFile || !councilFile) ? "bg-gray-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}`}
-                >
-                  Forward to Commissioner
-                </button>
-              </div>
+            </div>
+          </div>
+        )}
+        {/* Forwarded Tasks */}
+        {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved").length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6 border mt-6">
+            <div className="text-sm font-medium mb-3">Forwarded Tasks</div>
+            <div className="overflow-auto max-h-96">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr className="text-left text-xs border-b font-semibold">
+                    <th className="p-2 whitespace-nowrap">S.No</th>
+                    <th className="p-2 whitespace-nowrap">CR Number</th>
+                    <th className="p-2 whitespace-nowrap">CR Date</th>
+                    <th className="p-2 whitespace-nowrap">Sector</th>
+                    <th className="p-2 whitespace-nowrap">Proposal</th>
+                    <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                    <th className="p-2 whitespace-nowrap">Locality</th>
+                    <th className="p-2 whitespace-nowrap">Lat/Long</th>
+                    <th className="p-2 whitespace-nowrap">Priority</th>
+                    <th className="p-2 whitespace-nowrap">Work Image</th>
+                    <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                    <th className="p-2 whitespace-nowrap">Status</th>
+                    <th className="p-2 whitespace-nowrap">Forwarded Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forwardedSubmissions
+                    .filter((s) => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved")
+                    .map((s, i) => (
+                      <tr key={s.id} className="border-b hover:bg-gray-50">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.crNumber || "-"}</td>
+                        <td className="p-2">{s.crDate || "-"}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
+                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                        </td>
+                        <td className="p-2 text-center">{s.priority}</td>
+                        <td className="p-2">
+                          {s.workImage ? (
+                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                          ) : (<span className="text-gray-400 text-xs">No image</span>)}
+                        </td>
+                        <td className="p-2">
+                          {s.detailedReport ? (
+                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                          ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                        </td>
+                        <td className="p-2">
+                          {s.status === "Pending Review" ? (
+                            <span className="text-yellow-600">Pending Review</span>
+                          ) : s.status === "Approved" ? (
+                            <span className="text-green-600">Approved</span>
+                          ) : (
+                            <span className="text-blue-600">{s.status}</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-xs text-gray-600">
+                          {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {/* CDMA Approved tasks */}
+        {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "CDMA Approved").length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6 border mt-6">
+            <div className="text-sm font-medium mb-3">CDMA Approved Tasks</div>
+            <div className="overflow-auto max-h-96">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr className="text-left text-xs border-b font-semibold">
+                    <th className="p-2 whitespace-nowrap">S.No</th>
+                    <th className="p-2 whitespace-nowrap">CR Number</th>
+                    <th className="p-2 whitespace-nowrap">CR Date</th>
+                    <th className="p-2 whitespace-nowrap">Sector</th>
+                    <th className="p-2 whitespace-nowrap">Proposal</th>
+                    <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                    <th className="p-2 whitespace-nowrap">Locality</th>
+                    <th className="p-2 whitespace-nowrap">Lat/Long</th>
+                    <th className="p-2 whitespace-nowrap">Priority</th>
+                    <th className="p-2 whitespace-nowrap">Work Image</th>
+                    <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                    <th className="p-2 whitespace-nowrap">Status</th>
+                    <th className="p-2 whitespace-nowrap">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forwardedSubmissions
+                    .filter((s) => s.status === "CDMA Approved")
+                    .map((s, i) => (
+                      <tr key={s.id} className="border-b hover:bg-gray-50">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.crNumber || "-"}</td>
+                        <td className="p-2">{s.crDate || "-"}</td>
+                        <td className="p-2">{s.sector}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
+                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                        </td>
+                        <td className="p-2 text-center">{s.priority}</td>
+                        <td className="p-2">
+                          {s.workImage ? (
+                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                          ) : (<span className="text-gray-400 text-xs">No image</span>)}
+                        </td>
+                        <td className="p-2">
+                          {s.detailedReport ? (
+                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                          ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                        </td>
+                        <td className="p-2 text-green-600">CDMA Approved</td>
+                        <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -617,33 +904,53 @@ export default function AdminDashboard({
         {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "Rejected").length > 0 && (
           <div className="bg-white rounded-xl shadow p-6 border mt-6">
             <div className="text-sm font-medium mb-3">Rejected by Commissioner</div>
-            <div className="overflow-auto max-h-72">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="text-left text-sm border-b">
-                    <th className="p-2">S.No</th>
-                    <th className="p-2">Sector</th>
-                    <th className="p-2">Proposal</th>
-                    <th className="p-2 text-right">Estimated cost</th>
-                    <th className="p-2">Locality</th>
-                    <th className="p-2">Priority</th>
-                    <th className="p-2">Status</th>
-                    <th className="p-2">Remarks</th>
+            <div className="overflow-auto max-h-96">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr className="text-left text-xs border-b font-semibold">
+                    <th className="p-2 whitespace-nowrap">S.No</th>
+                    <th className="p-2 whitespace-nowrap">CR Number</th>
+                    <th className="p-2 whitespace-nowrap">CR Date</th>
+                    <th className="p-2 whitespace-nowrap">Sector</th>
+                    <th className="p-2 whitespace-nowrap">Proposal</th>
+                    <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                    <th className="p-2 whitespace-nowrap">Locality</th>
+                    <th className="p-2 whitespace-nowrap">Lat/Long</th>
+                    <th className="p-2 whitespace-nowrap">Priority</th>
+                    <th className="p-2 whitespace-nowrap">Work Image</th>
+                    <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                    <th className="p-2 whitespace-nowrap">Status</th>
+                    <th className="p-2 whitespace-nowrap">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
                   {forwardedSubmissions
                     .filter((s) => s.status === "Rejected")
                     .map((s, i) => (
-                      <tr key={s.id} className="border-b">
+                      <tr key={s.id} className="border-b hover:bg-gray-50">
                         <td className="p-2">{i + 1}</td>
+                        <td className="p-2">{s.crNumber || "-"}</td>
+                        <td className="p-2">{s.crDate || "-"}</td>
                         <td className="p-2">{s.sector}</td>
-                        <td className="p-2">{s.proposal}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
                         <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                        <td className="p-2">{s.locality}</td>
-                        <td className="p-2">{s.priority}</td>
-                        <td className="p-2 text-red-600">Rejected</td>
-                        <td className="p-2 text-gray-600">{s.remarks || "-"}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                        <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                        </td>
+                        <td className="p-2 text-center">{s.priority}</td>
+                        <td className="p-2">
+                          {s.workImage ? (
+                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                          ) : (<span className="text-gray-400 text-xs">No image</span>)}
+                        </td>
+                        <td className="p-2">
+                          {s.detailedReport ? (
+                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                          ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                        </td>
+                        <td className="p-2 text-red-600">Rejected by Commissioner</td>
+                        <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                       </tr>
                     ))}
                 </tbody>
