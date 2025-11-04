@@ -165,24 +165,38 @@ export default function CommissionerDashboard({
 
   // Helper function to get the list for selected view
   const getListForView = (view) => {
+    let list = [];
     switch (view) {
       case "pending":
-        return pendingList;
+        list = pendingList;
+        break;
       case "allWorks":
-        return forwardedSubmissions;
+        list = forwardedSubmissions;
+        break;
       case "approved":
-        return [...approvedList, ...forwardedList];
+        list = [...approvedList, ...forwardedList];
+        break;
       case "forwarded":
-        return forwardedList;
+        list = forwardedList;
+        break;
       case "selfRejected":
-        return selfRejectedList;
+        list = selfRejectedList;
+        break;
       case "sentBackRejected":
-        return rejectedList;
+        list = rejectedList;
+        break;
       case "noOfCrs":
-        return forwardedSubmissions; // All works for CR view
+        list = forwardedSubmissions; // All works for CR view
+        break;
       default:
-        return pendingList;
+        list = pendingList;
     }
+    // Sort by priority in ascending order
+    return [...list].sort((a, b) => {
+      const priorityA = Number(a.priority) || 0;
+      const priorityB = Number(b.priority) || 0;
+      return priorityA - priorityB;
+    });
   };
 
   const getViewTitle = (view) => {
@@ -444,18 +458,24 @@ export default function CommissionerDashboard({
       status: newStatus,
     });
 
-    setForwardSuccess(`Work forwarded to ${section} successfully!`);
-    setTimeout(() => {
-      setForwardSuccess("");
+    // Close modal immediately
       setShowForwardPanel(false);
-      setShowApprovePanel(false);
-      setApprovalConfirmed(false);
+    setShowApprovePanel(false);
+    setApprovalConfirmed(false);
       setPreviewSubmission(null);
       setDept("");
       setSection("");
       setForwardRemarks("");
-      setApproveRemarks("");
-    }, 1200);
+    setApproveRemarks("");
+    
+    // Show alert
+    alert("Forwarded successfully!");
+    
+    // Set banner message
+    setForwardSuccess(`✅ Successfully Forwarded to ${section}!`);
+    setTimeout(() => {
+      setForwardSuccess("");
+    }, 5000);
   };
 
 
@@ -497,8 +517,11 @@ export default function CommissionerDashboard({
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            logout?.();
-            window.location.href = "/";
+            const confirmed = window.confirm("Are you sure you want to logout?");
+            if (confirmed) {
+              logout?.();
+              window.location.href = "/";
+            }
           }}
         />
 
@@ -577,6 +600,11 @@ export default function CommissionerDashboard({
           </div>
 
           {/* banners */}
+          {forwardSuccess && (
+            <div className="mb-4 p-4 bg-green-500 text-white rounded-lg shadow-lg text-center font-semibold text-base animate-pulse">
+              {forwardSuccess}
+            </div>
+          )}
           {saveBanner && (
             <div className="p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded mb-2">
               {saveBanner}
@@ -600,16 +628,16 @@ export default function CommissionerDashboard({
             
             return (
               <>
-                <h3 className="text-sm text-gray-600 mb-2">
+          <h3 className="text-sm text-gray-600 mb-2">
                   {getViewTitle(selectedView)}
-                </h3>
+          </h3>
                 {currentList.length === 0 ? (
                   <p className="text-gray-500 text-sm">No items to display.</p>
-                ) : (
-                  <div className="overflow-auto max-h-80">
-                    <table className="min-w-full text-sm border-collapse">
-                      <thead className="bg-gray-100 border-b">
-                        <tr>
+          ) : (
+            <div className="overflow-auto max-h-80">
+            <table className="min-w-full text-sm border-collapse">
+                <thead className="bg-gray-100 border-b">
+  <tr>
                           <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
@@ -626,9 +654,9 @@ export default function CommissionerDashboard({
                           {!showActions && (selectedView === "selfRejected" || selectedView === "sentBackRejected") && (
                             <th className="p-2 text-left text-xs">Remarks</th>
                           )}
-                        </tr>
-                      </thead>
-                      <tbody>
+  </tr>
+</thead>
+                <tbody>
                         {(() => {
                           // Views that should show serial number for every row: allWorks, pending, forwarded, selfRejected, sentBackRejected
                           const viewsWithSerialNumbers = ["allWorks", "pending", "forwarded", "selfRejected", "sentBackRejected"];
@@ -685,26 +713,26 @@ export default function CommissionerDashboard({
                                   </td>
                                   {showActions && (
                                     <td className="p-2 align-top">
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => openPreview(s)}
-                                          className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
-                                        >
-                                          Review
-                                        </button>
-                                        <button
-                                          onClick={() => approve(s.id)}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => openPreview(s)}
+                            className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
+                          >
+                            Review
+                          </button>
+                          <button
+                            onClick={() => approve(s.id)}
                                           disabled={isActionDisabled(s.status) && !isCommissionerRejected}
-                                          className={`px-2 py-1 text-xs rounded ${
-                                            s.status === "Approved"
-                                              ? "bg-gray-300"
-                                              : "bg-green-600 text-white"
-                                          }`}
-                                        >
-                                          Approve
-                                        </button>
-                                        <button
-                                          onClick={() => reject(s.id)}
+                            className={`px-2 py-1 text-xs rounded ${
+                              s.status === "Approved"
+                                ? "bg-gray-300"
+                                : "bg-green-600 text-white"
+                            }`}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => reject(s.id)}
                                           disabled={false}
                                           className="px-2 py-1 text-xs rounded bg-red-600 text-white"
                                         >
@@ -803,9 +831,9 @@ export default function CommissionerDashboard({
                                         <button
                                           onClick={() => approve(s.id)}
                                           disabled={isActionDisabled(s.status) && !isCommissionerRejected}
-                                          className={`px-2 py-1 text-xs rounded ${
+                            className={`px-2 py-1 text-xs rounded ${
                                             s.status === "Approved"
-                                              ? "bg-gray-300"
+                                ? "bg-gray-300"
                                               : "bg-green-600 text-white"
                                           }`}
                                         >
@@ -815,24 +843,24 @@ export default function CommissionerDashboard({
                                           onClick={() => reject(s.id)}
                                           disabled={false}
                                           className="px-2 py-1 text-xs rounded bg-red-600 text-white"
-                                        >
-                                          Reject
-                                        </button>
-                                      </div>
-                                    </td>
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
                                   )}
                                   {!showActions && (selectedView === "selfRejected" || selectedView === "sentBackRejected") && (
                                     <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                                   )}
-                                </tr>
+                    </tr>
                               );
                             });
                           }).flat();
                         })()}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                </tbody>
+              </table>
+            </div>
+          )}
               </>
             );
           })()}
@@ -932,9 +960,9 @@ export default function CommissionerDashboard({
                 
                 {!approvalConfirmed ? (
                   <>
-                    <div>
+              <div>
                       <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
-                      <textarea
+                <textarea
                         className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         rows={6}
                         value={approveRemarks}
@@ -1002,7 +1030,7 @@ export default function CommissionerDashboard({
                         <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
                         <textarea
                           className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          rows={4}
+                  rows={4}
                           value={forwardRemarks}
                           onChange={(e) => setForwardRemarks(e.target.value)}
                           placeholder="Enter remarks for forwarding (optional)..."
@@ -1077,30 +1105,30 @@ export default function CommissionerDashboard({
                   <textarea
                     className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     rows={6}
-                    value={rejectRemarks}
-                    onChange={(e) => setRejectRemarks(e.target.value)}
-                    placeholder="Please enter reason for rejection..."
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="Please enter reason for rejection..."
                     required
-                  />
-                </div>
+                />
+              </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowRejectPanel(false);
-                      setRejectRemarks("");
-                      setPreviewSubmission(null);
-                    }}
+                <button
+                  onClick={() => {
+                    setShowRejectPanel(false);
+                    setRejectRemarks("");
+                    setPreviewSubmission(null);
+                  }}
                     className="px-5 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmReject}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmReject}
                     className="px-5 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                  >
-                    Submit Rejection
-                  </button>
-                </div>
+                >
+                  Submit Rejection
+                </button>
+              </div>
               </div>
             </div>
           )}
@@ -1182,10 +1210,13 @@ export default function CommissionerDashboard({
                   {/* Work Image */}
                   <div className="border rounded p-3 bg-gray-50">
                     <label className="text-sm text-gray-700 font-medium block mb-2">Work Image</label>
-                    {(previewSubmission.workImage && previewSubmission.workImage instanceof File) || (editable.workImage && editable.workImage instanceof File) ? (
+                    {(() => {
+                      const imageFile = editable.workImage || previewSubmission.workImage;
+                      const imageUrl = getFileUrl(imageFile);
+                      return imageUrl ? (
                       <div className="mb-2">
                         <img
-                          src={URL.createObjectURL((editable.workImage && editable.workImage instanceof File) ? editable.workImage : previewSubmission.workImage)}
+                            src={imageUrl}
                           alt="Work"
                           className="rounded max-h-40 border"
                           onError={(e) => {
@@ -1199,7 +1230,8 @@ export default function CommissionerDashboard({
                       </div>
                     ) : (
                       <div className="text-sm text-gray-500 mb-2">No image attached</div>
-                    )}
+                      );
+                    })()}
                     <input
                       type="file"
                       accept="image/*"
@@ -1216,20 +1248,24 @@ export default function CommissionerDashboard({
                   {/* Detailed/Estimation Report */}
                   <div className="border rounded p-3 bg-gray-50">
                     <label className="text-sm text-gray-700 font-medium block mb-2">Estimation Report</label>
-                    {((previewSubmission.detailedReport && previewSubmission.detailedReport instanceof File) || (editable.detailedReport && editable.detailedReport instanceof File)) ? (
+                    {(() => {
+                      const reportFile = editable.detailedReport || previewSubmission.detailedReport;
+                      const reportUrl = getFileUrl(reportFile);
+                      return reportUrl ? (
                       <div className="mb-2">
                         <a
-                          href={URL.createObjectURL((editable.detailedReport && editable.detailedReport instanceof File) ? editable.detailedReport : previewSubmission.detailedReport)}
+                            href={reportUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="text-blue-600 underline text-sm hover:text-blue-800"
                         >
-                          📄 View Current Report ({((editable.detailedReport && editable.detailedReport instanceof File) ? editable.detailedReport : previewSubmission.detailedReport).name || 'file'})
+                            📄 View Current Report ({reportFile instanceof File ? reportFile.name : 'file'})
                         </a>
                       </div>
                     ) : (
                       <div className="text-sm text-gray-500 mb-2">No report attached</div>
-                    )}
+                      );
+                    })()}
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx"
@@ -1246,20 +1282,24 @@ export default function CommissionerDashboard({
                   {/* Committee Report */}
                   <div className="border rounded p-3 bg-gray-50">
                     <label className="text-sm text-gray-700 font-medium block mb-2">Committee Report</label>
-                    {((previewSubmission.committeeReport && previewSubmission.committeeReport instanceof File) || (editable.committeeReport && editable.committeeReport instanceof File)) ? (
+                    {(() => {
+                      const reportFile = editable.committeeReport || previewSubmission.committeeReport;
+                      const reportUrl = getFileUrl(reportFile);
+                      return reportUrl ? (
                       <div className="mb-2">
                         <a
-                          href={URL.createObjectURL((editable.committeeReport && editable.committeeReport instanceof File) ? editable.committeeReport : previewSubmission.committeeReport)}
+                            href={reportUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="text-blue-600 underline text-sm hover:text-blue-800"
                         >
-                          📄 View Current Report ({((editable.committeeReport && editable.committeeReport instanceof File) ? editable.committeeReport : previewSubmission.committeeReport).name || 'file'})
+                            📄 View Current Report ({reportFile instanceof File ? reportFile.name : 'file'})
                         </a>
                       </div>
                     ) : (
                       <div className="text-sm text-gray-500 mb-2">No report attached</div>
-                    )}
+                      );
+                    })()}
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx"
@@ -1276,20 +1316,24 @@ export default function CommissionerDashboard({
                   {/* Council Resolution Report */}
                   <div className="border rounded p-3 bg-gray-50">
                     <label className="text-sm text-gray-700 font-medium block mb-2">Council Resolution Report</label>
-                    {((previewSubmission.councilResolution && previewSubmission.councilResolution instanceof File) || (editable.councilResolution && editable.councilResolution instanceof File)) ? (
+                    {(() => {
+                      const reportFile = editable.councilResolution || previewSubmission.councilResolution;
+                      const reportUrl = getFileUrl(reportFile);
+                      return reportUrl ? (
                       <div className="mb-2">
                         <a
-                          href={URL.createObjectURL((editable.councilResolution && editable.councilResolution instanceof File) ? editable.councilResolution : previewSubmission.councilResolution)}
+                            href={reportUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="text-blue-600 underline text-sm hover:text-blue-800"
                         >
-                          📄 View Current Report ({((editable.councilResolution && editable.councilResolution instanceof File) ? editable.councilResolution : previewSubmission.councilResolution).name || 'file'})
+                            📄 View Current Report ({reportFile instanceof File ? reportFile.name : 'file'})
                         </a>
                       </div>
                     ) : (
                       <div className="text-sm text-gray-500 mb-2">No report attached</div>
-                    )}
+                      );
+                    })()}
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx"

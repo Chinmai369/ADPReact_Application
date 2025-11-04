@@ -162,6 +162,9 @@ export default function AdminDashboard({
   // Track if we're editing (to count it in submissions length for Forward button)
   const [isEditing, setIsEditing] = useState(false);
 
+  // Card-based navigation state - default to "forwarded"
+  const [selectedView, setSelectedView] = useState("forwarded");
+
   // Helper: reset the form (optionally keep numberOfWorks when activeCR present)
   function resetForm(keepNumberOfWorks = false) {
     setWorkType("");
@@ -268,8 +271,84 @@ export default function AdminDashboard({
   // Return flat grouped rows for rendering while allowing merged cells via rowSpan
   const groupedKeys = useMemo(() => Object.keys(groupedSubmissions), [groupedSubmissions]);
 
+  // Helper function to get the list for selected view
+  const getListForView = (view) => {
+    let list = [];
+    switch (view) {
+      case "noOfCrs":
+        list = [...submissions, ...(forwardedSubmissions || [])];
+        break;
+      case "allWorks":
+        list = [...submissions, ...(forwardedSubmissions || []).filter(s => 
+          s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || 
+          s.status === "Approved" || s.status === "CDMA Approved" || s.status === "Rejected"
+        )];
+        break;
+      case "forwarded":
+        list = (forwardedSubmissions || []).filter(s => 
+          s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved"
+        );
+        break;
+      case "cdmaApproved":
+        list = (forwardedSubmissions || []).filter(s => s.status === "CDMA Approved");
+        break;
+      case "rejected":
+        list = (forwardedSubmissions || []).filter(s => s.status === "Rejected" && s.rejectedBy === "Commissioner");
+        break;
+      default:
+        list = [];
+    }
+    // Sort by priority in ascending order
+    return [...list].sort((a, b) => {
+      const priorityA = Number(a.priority) || 0;
+      const priorityB = Number(b.priority) || 0;
+      return priorityA - priorityB;
+    });
+  };
+
+  const getViewTitle = (view) => {
+    switch (view) {
+      case "noOfCrs":
+        return "All Works (by CR Number)";
+      case "allWorks":
+        return "All Works";
+      case "forwarded":
+        return "Forwarded Tasks";
+      case "cdmaApproved":
+        return "CDMA Approved Tasks";
+      case "rejected":
+        return "Sent back REJECTED LIST";
+      default:
+        return "Forwarded Tasks";
+    }
+  };
+
+  // Helper function to convert File to Base64 data URL
+  const fileToBase64 = (file) => {
+    return new Promise((resolve) => {
+      if (!file) {
+        resolve(null);
+        return;
+      }
+      // If it's already a string (URL or data URL), return it
+      if (typeof file === 'string') {
+        resolve(file);
+        return;
+      }
+      // If it's a File object, convert to base64 data URL
+      if (file instanceof File) {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      } else {
+        resolve(null);
+      }
+    });
+  };
+
   // Forward to commissioner
-  function handleForwardToCommissioner() {
+  async function handleForwardToCommissioner() {
     const reqCount = Number(numberOfWorks || 0);
     const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
     
@@ -309,15 +388,26 @@ export default function AdminDashboard({
       submissionsToForward.push(editedSub);
     }
     
-    const forwarded = submissionsToForward.map((s) => ({
+    // Convert all File objects to Base64 data URLs before forwarding
+    const forwarded = await Promise.all(
+      submissionsToForward.map(async (s) => {
+        const converted = {
       ...s,
       id: Date.now() + Math.random(),
       status: "Pending Review",
       forwardedDate: now,
-      committeeReport: committeeFile,
-      councilResolution: councilFile,
       remarks: "",
-    }));
+        };
+        
+        // Convert File objects to Base64 data URLs
+        converted.workImage = await fileToBase64(s.workImage);
+        converted.detailedReport = await fileToBase64(s.detailedReport);
+        converted.committeeReport = await fileToBase64(committeeFile);
+        converted.councilResolution = await fileToBase64(councilFile);
+        
+        return converted;
+      })
+    );
   
     setForwardedSubmissions((fs) => [...forwarded, ...fs]);
   
@@ -343,10 +433,15 @@ export default function AdminDashboard({
     setCrDate("");
     setActiveCR(null);
     setIsEditing(false); // Clear editing state after forwarding
-    setSuccessMsg("Forwarded to Commissioner");
+    
+    // Show alert
+    alert("Forwarded successfully!");
+    
+    // Set banner message
+    setSuccessMsg("✅ Successfully Forwarded to Commissioner!");
   
-    // Optional: small delay before clearing message
-    setTimeout(() => setSuccessMsg(""), 2000);
+    // Clear message after 5 seconds
+    setTimeout(() => setSuccessMsg(""), 5000);
   }
   
 
@@ -364,16 +459,29 @@ export default function AdminDashboard({
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            logout();
-            navigate("/");
+            const confirmed = window.confirm("Are you sure you want to logout?");
+            if (confirmed) {
+              logout();
+              navigate("/");
+            }
           }}
         />
 
+        {/* Forwarding Success Banner */}
+        {successMsg && (
+          <div className="mb-4 p-4 bg-green-500 text-white rounded-lg shadow-lg text-center font-semibold text-base animate-pulse">
+            {successMsg}
+          </div>
+        )}
+
         {/* Statistics Cards */}
         <div className="bg-white rounded-xl shadow p-6 border mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* No. of CR's */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("noOfCrs")}
+              className={`bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition ${selectedView === "noOfCrs" ? "ring-2 ring-blue-500" : ""}`}
+            >
               <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
               <div className="text-xl font-bold text-blue-700">
                 {(() => {
@@ -390,7 +498,10 @@ export default function AdminDashboard({
             </div>
 
             {/* No. of Works */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("allWorks")}
+              className={`bg-purple-50 border border-purple-200 rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition ${selectedView === "allWorks" ? "ring-2 ring-purple-500" : ""}`}
+            >
               <div className="text-xs text-purple-600 font-medium mb-1">No. of Works</div>
               <div className="text-xl font-bold text-purple-700">
                 {submissions.length + 
@@ -402,15 +513,32 @@ export default function AdminDashboard({
             </div>
 
             {/* No. of Forwarded */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("forwarded")}
+              className={`bg-indigo-50 border border-indigo-200 rounded-lg p-3 cursor-pointer hover:bg-indigo-100 transition ${selectedView === "forwarded" ? "ring-2 ring-indigo-500" : ""}`}
+            >
               <div className="text-xs text-indigo-600 font-medium mb-1">No. of Forwarded</div>
               <div className="text-xl font-bold text-indigo-700">
                 {(forwardedSubmissions || []).filter(s => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved").length}
               </div>
             </div>
 
+            {/* No. of Approved */}
+            <div 
+              onClick={() => setSelectedView("cdmaApproved")}
+              className={`bg-green-50 border border-green-200 rounded-lg p-3 cursor-pointer hover:bg-green-100 transition ${selectedView === "cdmaApproved" ? "ring-2 ring-green-500" : ""}`}
+            >
+              <div className="text-xs text-green-600 font-medium mb-1">No. of Approved</div>
+              <div className="text-xl font-bold text-green-700">
+                {(forwardedSubmissions || []).filter(s => s.status === "CDMA Approved").length}
+              </div>
+            </div>
+
             {/* Sent back REJECTED LIST */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("rejected")}
+              className={`bg-orange-50 border border-orange-200 rounded-lg p-3 cursor-pointer hover:bg-orange-100 transition ${selectedView === "rejected" ? "ring-2 ring-orange-500" : ""}`}
+            >
               <div className="text-xs text-orange-600 font-medium mb-1">Sent back REJECTED LIST</div>
               <div className="text-xl font-bold text-orange-700">
                 {(forwardedSubmissions || []).filter(s => s.status === "Rejected" && s.rejectedBy === "Commissioner").length}
@@ -674,7 +802,6 @@ export default function AdminDashboard({
 
               <div className="border-b border-gray-300 mt-4"></div>
 
-              {successMsg && <div className="mt-3 p-2 bg-green-100 text-green-700 rounded text-sm">{successMsg}</div>}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
@@ -780,190 +907,233 @@ export default function AdminDashboard({
             </div>
           </div>
         )}
-        {/* Forwarded Tasks */}
-        {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved").length > 0 && (
+        {/* Dynamic Table based on selected view */}
+        {(() => {
+          const currentList = getListForView(selectedView);
+          const viewTitle = getViewTitle(selectedView);
+          
+          // Show CDMA Approved view separately if selected
+          if (selectedView === "cdmaApproved") {
+            const cdmaList = getListForView("cdmaApproved");
+            if (cdmaList.length === 0) {
+              return (
           <div className="bg-white rounded-xl shadow p-6 border mt-6">
-            <div className="text-sm font-medium mb-3">Forwarded Tasks</div>
-            <div className="overflow-auto max-h-96">
-              <table className="w-full border-collapse text-xs">
-                <thead className="bg-gray-100 sticky top-0">
-                  <tr className="text-left text-xs border-b font-semibold">
-                    <th className="p-2 whitespace-nowrap">S.No</th>
-                    <th className="p-2 whitespace-nowrap">CR Number</th>
-                    <th className="p-2 whitespace-nowrap">CR Date</th>
-                    <th className="p-2 whitespace-nowrap">Sector</th>
-                    <th className="p-2 whitespace-nowrap">Proposal</th>
-                    <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                    <th className="p-2 whitespace-nowrap">Locality</th>
-                    <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                    <th className="p-2 whitespace-nowrap">Priority</th>
-                    <th className="p-2 whitespace-nowrap">Work Image</th>
-                    <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                    <th className="p-2 whitespace-nowrap">Status</th>
-                    <th className="p-2 whitespace-nowrap">Forwarded Date</th>
+                  <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
+                  <p className="text-gray-500 text-sm">No items to display.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-white rounded-xl shadow p-6 border mt-6">
+                <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
+                <div className="overflow-auto max-h-96">
+                  <table className="w-full border-collapse text-xs">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr className="text-left text-xs border-b font-semibold">
+                        <th className="p-2 whitespace-nowrap">S.No</th>
+                        <th className="p-2 whitespace-nowrap">CR Number</th>
+                        <th className="p-2 whitespace-nowrap">CR Date</th>
+                        <th className="p-2 whitespace-nowrap">Sector</th>
+                        <th className="p-2 whitespace-nowrap">Proposal</th>
+                        <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                        <th className="p-2 whitespace-nowrap">Locality</th>
+                        <th className="p-2 whitespace-nowrap">Lat/Long</th>
+                        <th className="p-2 whitespace-nowrap">Priority</th>
+                        <th className="p-2 whitespace-nowrap">Work Image</th>
+                        <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                        <th className="p-2 whitespace-nowrap">Status</th>
+                        <th className="p-2 whitespace-nowrap">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {forwardedSubmissions
-                    .filter((s) => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved")
-                    .map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
+                      {cdmaList.map((s, i) => (
+                        <tr key={s.id} className="border-b hover:bg-gray-50">
                         <td className="p-2">{i + 1}</td>
-                        <td className="p-2">{s.crNumber || "-"}</td>
-                        <td className="p-2">{s.crDate || "-"}</td>
+                          <td className="p-2">{s.crNumber || "-"}</td>
+                          <td className="p-2">{s.crDate || "-"}</td>
                         <td className="p-2">{s.sector}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
+                          <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
                         <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
-                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                        </td>
-                        <td className="p-2 text-center">{s.priority}</td>
-                        <td className="p-2">
-                          {s.workImage ? (
-                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
-                          ) : (<span className="text-gray-400 text-xs">No image</span>)}
-                        </td>
-                        <td className="p-2">
-                          {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
-                          ) : (<span className="text-gray-400 text-xs">No report</span>)}
-                        </td>
-                        <td className="p-2">
-                          {s.status === "Pending Review" ? (
-                            <span className="text-yellow-600">Pending Review</span>
-                          ) : s.status === "Approved" ? (
-                            <span className="text-green-600">Approved</span>
-                          ) : (
-                            <span className="text-blue-600">{s.status}</span>
-                          )}
-                        </td>
-                        <td className="p-2 text-xs text-gray-600">
-                          {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "-"}
-                        </td>
+                          <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                          <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                            {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                          </td>
+                          <td className="p-2 text-center">{s.priority}</td>
+                          <td className="p-2">
+                            {s.workImage ? (
+                              <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                            ) : (<span className="text-gray-400 text-xs">No image</span>)}
+                          </td>
+                          <td className="p-2">
+                            {s.detailedReport ? (
+                              <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                            ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                          </td>
+                          <td className="p-2 text-green-600">CDMA Approved</td>
+                          <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                       </tr>
                     ))}
                 </tbody>
               </table>
             </div>
           </div>
-        )}
-        {/* CDMA Approved tasks */}
-        {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "CDMA Approved").length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6 border mt-6">
-            <div className="text-sm font-medium mb-3">CDMA Approved Tasks</div>
-            <div className="overflow-auto max-h-96">
-              <table className="w-full border-collapse text-xs">
-                <thead className="bg-gray-100 sticky top-0">
-                  <tr className="text-left text-xs border-b font-semibold">
-                    <th className="p-2 whitespace-nowrap">S.No</th>
-                    <th className="p-2 whitespace-nowrap">CR Number</th>
-                    <th className="p-2 whitespace-nowrap">CR Date</th>
-                    <th className="p-2 whitespace-nowrap">Sector</th>
-                    <th className="p-2 whitespace-nowrap">Proposal</th>
-                    <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                    <th className="p-2 whitespace-nowrap">Locality</th>
-                    <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                    <th className="p-2 whitespace-nowrap">Priority</th>
-                    <th className="p-2 whitespace-nowrap">Work Image</th>
-                    <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                    <th className="p-2 whitespace-nowrap">Status</th>
-                    <th className="p-2 whitespace-nowrap">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {forwardedSubmissions
-                    .filter((s) => s.status === "CDMA Approved")
-                    .map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{i + 1}</td>
-                        <td className="p-2">{s.crNumber || "-"}</td>
-                        <td className="p-2">{s.crDate || "-"}</td>
-                        <td className="p-2">{s.sector}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
-                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                        </td>
-                        <td className="p-2 text-center">{s.priority}</td>
-                        <td className="p-2">
-                          {s.workImage ? (
-                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
-                          ) : (<span className="text-gray-400 text-xs">No image</span>)}
-                        </td>
-                        <td className="p-2">
-                          {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
-                          ) : (<span className="text-gray-400 text-xs">No report</span>)}
-                        </td>
-                        <td className="p-2 text-green-600">CDMA Approved</td>
-                        <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+            );
+          }
+
+          if (currentList.length === 0) {
+            return (
+              <div className="bg-white rounded-xl shadow p-6 border mt-6">
+                <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
+                <p className="text-gray-500 text-sm">No items to display.</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="bg-white rounded-xl shadow p-6 border mt-6">
+              <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
+              <div className="overflow-auto max-h-96">
+                <table className="w-full border-collapse text-xs">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr className="text-left text-xs border-b font-semibold">
+                      <th className="p-2 whitespace-nowrap">S.No</th>
+                      <th className="p-2 whitespace-nowrap">CR Number</th>
+                      <th className="p-2 whitespace-nowrap">CR Date</th>
+                      <th className="p-2 whitespace-nowrap">Sector</th>
+                      <th className="p-2 whitespace-nowrap">Proposal</th>
+                      <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                      <th className="p-2 whitespace-nowrap">Locality</th>
+                      <th className="p-2 whitespace-nowrap">Lat/Long</th>
+                      <th className="p-2 whitespace-nowrap">Priority</th>
+                      <th className="p-2 whitespace-nowrap">Work Image</th>
+                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap">Status</th>
+                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap">Forwarded Date</th>}
+                      {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap">Remarks</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      if (selectedView === "noOfCrs") {
+                        // Group by CR number for CR view
+                        const groupedByCR = {};
+                        currentList.forEach((s) => {
+                          const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                          if (!groupedByCR[crKey]) {
+                            groupedByCR[crKey] = [];
+                          }
+                          groupedByCR[crKey].push(s);
+                        });
+                        
+                        const crGroups = Object.values(groupedByCR).filter(group => {
+                          // Filter out groups with __NO_CR__ key
+                          const firstItem = group[0];
+                          const crKey = (firstItem.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                          return crKey !== "__NO_CR__";
+                        });
+                        
+                        let globalSerial = 0;
+                        
+                        return crGroups.map((group) => {
+                          return group.map((s, idxInGroup) => {
+                            const isFirstInGroup = idxInGroup === 0;
+                            if (isFirstInGroup) globalSerial++;
+                            return (
+                              <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 align-top">{isFirstInGroup ? globalSerial : ""}</td>
+                                <td className="p-2 align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                <td className="p-2 align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                <td className="p-2 align-top">{isFirstInGroup ? s.sector : ""}</td>
+                                <td className="p-2 max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-right align-top">{fmtINR(Math.round(s.cost || 0))}</td>
+                                <td className="p-2 max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                </td>
+                                <td className="p-2 text-center align-top">{s.priority}</td>
+                                <td className="p-2 align-top">
+                                  {s.workImage ? (
+                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                  ) : (<span className="text-gray-400 text-xs">No image</span>)}
+                                </td>
+                                <td className="p-2 align-top">
+                                  {s.detailedReport ? (
+                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                  ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                                </td>
+                                <td className="p-2 align-top">
+                                  {s.status === "Pending Review" ? (
+                                    <span className="text-yellow-600">Pending Review</span>
+                                  ) : s.status === "Approved" ? (
+                                    <span className="text-green-600">Approved</span>
+                                  ) : s.status === "CDMA Approved" ? (
+                                    <span className="text-green-600">CDMA Approved</span>
+                                  ) : s.status === "Rejected" ? (
+                                    <span className="text-red-600">Rejected</span>
+                                  ) : (
+                                    <span className="text-blue-600">{s.status}</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        }).flat();
+                      } else {
+                        // For other views, show serial number for every row
+                        return currentList.map((s, i) => (
+                          <tr key={s.id} className="border-b hover:bg-gray-50">
+                            <td className="p-2">{i + 1}</td>
+                            <td className="p-2">{s.crNumber || "-"}</td>
+                            <td className="p-2">{s.crDate || "-"}</td>
+                            <td className="p-2">{s.sector}</td>
+                            <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
+                            <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
+                            <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                            <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                              {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                            </td>
+                            <td className="p-2 text-center">{s.priority}</td>
+                            <td className="p-2">
+                              {s.workImage ? (
+                                <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                              ) : (<span className="text-gray-400 text-xs">No image</span>)}
+                            </td>
+                            <td className="p-2">
+                              {s.detailedReport ? (
+                                <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                              ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                            </td>
+                            <td className="p-2">
+                              {s.status === "Pending Review" ? (
+                                <span className="text-yellow-600">Pending Review</span>
+                              ) : s.status === "Approved" ? (
+                                <span className="text-green-600">Approved</span>
+                              ) : s.status === "CDMA Approved" ? (
+                                <span className="text-green-600">CDMA Approved</span>
+                              ) : s.status === "Rejected" ? (
+                                <span className="text-red-600">Rejected by Commissioner</span>
+                              ) : (
+                                <span className="text-blue-600">{s.status}</span>
+                              )}
+                            </td>
+                            {selectedView === "forwarded" && (
+                              <td className="p-2 text-xs text-gray-600">
+                                {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "-"}
+                              </td>
+                            )}
+                            {selectedView === "rejected" && (
+                              <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                            )}
+                          </tr>
+                        ));
+                      }
+                    })()}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
-        {/* Rejected by Commissioner */}
-        {forwardedSubmissions && forwardedSubmissions.filter((s) => s.status === "Rejected").length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6 border mt-6">
-            <div className="text-sm font-medium mb-3">Rejected by Commissioner</div>
-            <div className="overflow-auto max-h-96">
-              <table className="w-full border-collapse text-xs">
-                <thead className="bg-gray-100 sticky top-0">
-                  <tr className="text-left text-xs border-b font-semibold">
-                    <th className="p-2 whitespace-nowrap">S.No</th>
-                    <th className="p-2 whitespace-nowrap">CR Number</th>
-                    <th className="p-2 whitespace-nowrap">CR Date</th>
-                    <th className="p-2 whitespace-nowrap">Sector</th>
-                    <th className="p-2 whitespace-nowrap">Proposal</th>
-                    <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                    <th className="p-2 whitespace-nowrap">Locality</th>
-                    <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                    <th className="p-2 whitespace-nowrap">Priority</th>
-                    <th className="p-2 whitespace-nowrap">Work Image</th>
-                    <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                    <th className="p-2 whitespace-nowrap">Status</th>
-                    <th className="p-2 whitespace-nowrap">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {forwardedSubmissions
-                    .filter((s) => s.status === "Rejected")
-                    .map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{i + 1}</td>
-                        <td className="p-2">{s.crNumber || "-"}</td>
-                        <td className="p-2">{s.crDate || "-"}</td>
-                        <td className="p-2">{s.sector}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
-                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                        </td>
-                        <td className="p-2 text-center">{s.priority}</td>
-                        <td className="p-2">
-                          {s.workImage ? (
-                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
-                          ) : (<span className="text-gray-400 text-xs">No image</span>)}
-                        </td>
-                        <td className="p-2">
-                          {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
-                          ) : (<span className="text-gray-400 text-xs">No report</span>)}
-                        </td>
-                        <td className="p-2 text-red-600">Rejected by Commissioner</td>
-                        <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

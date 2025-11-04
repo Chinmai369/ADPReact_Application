@@ -77,34 +77,47 @@ export default function ENCPHDashboard({
 
   // Helper functions for view
   const getListForView = (view) => {
+    let list = [];
     switch (view) {
       case "pending":
-        return pendingList;
+        list = pendingList;
+        break;
       case "allWorks":
-        return forwardedSubmissions.filter(s => {
+        list = forwardedSubmissions.filter(s => {
           const status = (s.status || "").trim().toLowerCase();
           const section = (s.forwardedTo?.section || "").trim().toLowerCase();
           return status.includes("forwarded to encph") || section.includes("encph") || 
                  status.includes("forwarded to cdma") || status === "cdma approved" ||
                  status === "encph rejected";
         });
+        break;
       case "forwarded":
-        return approvedList; // Forwarded to CDMA
+        list = approvedList; // Forwarded to CDMA
+        break;
       case "rejected":
-        return rejectedList;
+        list = rejectedList;
+        break;
       case "sentBackRejected":
-        return forwardedSubmissions.filter(s => s.status === "CDMA Rejected");
+        list = forwardedSubmissions.filter(s => s.status === "CDMA Rejected");
+        break;
       case "noOfCrs":
-        return forwardedSubmissions.filter(s => {
+        list = forwardedSubmissions.filter(s => {
           const status = (s.status || "").trim().toLowerCase();
           const section = (s.forwardedTo?.section || "").trim().toLowerCase();
           return status.includes("forwarded to encph") || section.includes("encph") || 
                  status.includes("forwarded to cdma") || status === "cdma approved" ||
                  status === "encph rejected";
         });
+        break;
       default:
-        return pendingList;
+        list = pendingList;
     }
+    // Sort by priority in ascending order
+    return [...list].sort((a, b) => {
+      const priorityA = Number(a.priority) || 0;
+      const priorityB = Number(b.priority) || 0;
+      return priorityA - priorityB;
+    });
   };
 
   const getViewTitle = (view) => {
@@ -289,11 +302,17 @@ export default function ENCPHDashboard({
           : f
       )
     );
+    // Close modal immediately
     setShowApprovePanel(false);
-    setApproveBanner("Work approved by ENCPH and forwarded to CDMA.");
-    setTimeout(() => setApproveBanner(""), 1500);
     setPreviewSubmission(null);
     setApproveRemarks("");
+    
+    // Show alert
+    alert("Forwarded successfully!");
+    
+    // Set banner message
+    setApproveBanner("✅ Successfully Approved and Forwarded to CDMA!");
+    setTimeout(() => setApproveBanner(""), 5000);
   };
 
   // --- Reject ---
@@ -368,8 +387,11 @@ export default function ENCPHDashboard({
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            logout?.();
-            window.location.href = "/";
+            const confirmed = window.confirm("Are you sure you want to logout?");
+            if (confirmed) {
+              logout?.();
+              window.location.href = "/";
+            }
           }}
         />
 
@@ -463,14 +485,14 @@ export default function ENCPHDashboard({
           </div>
 
           {/* banners */}
+          {approveBanner && (
+            <div className="mb-4 p-4 bg-green-500 text-white rounded-lg shadow-lg text-center font-semibold text-base animate-pulse">
+              {approveBanner}
+            </div>
+          )}
           {saveBanner && (
             <div className="p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded mb-2">
               {saveBanner}
-            </div>
-          )}
-          {approveBanner && (
-            <div className="p-2 bg-green-50 border border-green-200 text-green-700 rounded mb-2">
-              {approveBanner}
             </div>
           )}
           {rejectBanner && (
@@ -779,7 +801,7 @@ export default function ENCPHDashboard({
                 >
                   Submit Rejection
                 </button>
-                </div>
+              </div>
               </div>
             </div>
           )}
@@ -907,16 +929,23 @@ export default function ENCPHDashboard({
                       }
                     />
                   </div>
-                  {previewSubmission.workImage && (
+                  {(() => {
+                    const imageFile = editable.workImage || previewSubmission.workImage;
+                    const imageUrl = getFileUrl(imageFile);
+                    return imageUrl && (
                     <div className="md:col-span-2 mt-2">
                       <label className="text-sm text-gray-600">Work Image</label>
                       <img
-                        src={URL.createObjectURL(previewSubmission.workImage)}
+                          src={imageUrl}
                         alt=""
                         className="mt-2 rounded max-h-60"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
                       />
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* File uploads section */}
@@ -929,11 +958,11 @@ export default function ENCPHDashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Work Image</label>
                       {(() => {
                         const imgFile = editable.workImage || previewSubmission.workImage;
-                        if (imgFile && imgFile instanceof File) {
-                          return (
+                        const imageUrl = getFileUrl(imgFile);
+                        return imageUrl ? (
                             <div className="mb-2">
                               <img
-                                src={URL.createObjectURL(imgFile)}
+                              src={imageUrl}
                                 alt="Work"
                                 className="rounded max-h-40 border"
                                 onError={(e) => {
@@ -945,9 +974,9 @@ export default function ENCPHDashboard({
                               />
                               <div style={{display: 'none'}} className="text-sm text-gray-500">Image preview unavailable</div>
                             </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No image attached</div>
                           );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No image attached</div>;
                       })()}
                     </div>
 
@@ -956,21 +985,21 @@ export default function ENCPHDashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Detailed Estimation Report</label>
                       {(() => {
                         const reportFile = editable.detailedReport || previewSubmission.detailedReport;
-                        if (reportFile && reportFile instanceof File) {
-                          return (
+                        const reportUrl = getFileUrl(reportFile);
+                        return reportUrl ? (
                             <div className="mb-2">
                               <a
-                                href={URL.createObjectURL(reportFile)}
+                              href={reportUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 underline text-sm hover:text-blue-800"
                               >
-                                📄 View Report ({reportFile.name || 'file'})
+                              📄 View Report ({reportFile instanceof File ? reportFile.name : 'file'})
                               </a>
                             </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No report attached</div>
                           );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No report attached</div>;
                       })()}
                     </div>
 
@@ -979,21 +1008,21 @@ export default function ENCPHDashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Committee Report</label>
                       {(() => {
                         const reportFile = editable.committeeReport || previewSubmission.committeeReport;
-                        if (reportFile && reportFile instanceof File) {
-                          return (
+                        const reportUrl = getFileUrl(reportFile);
+                        return reportUrl ? (
                             <div className="mb-2">
                               <a
-                                href={URL.createObjectURL(reportFile)}
+                              href={reportUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 underline text-sm hover:text-blue-800"
                               >
-                                📄 View Report ({reportFile.name || 'file'})
+                              📄 View Report ({reportFile instanceof File ? reportFile.name : 'file'})
                               </a>
                             </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No report attached</div>
                           );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No report attached</div>;
                       })()}
                     </div>
 
@@ -1002,21 +1031,21 @@ export default function ENCPHDashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Council Resolution Report</label>
                       {(() => {
                         const reportFile = editable.councilResolution || previewSubmission.councilResolution;
-                        if (reportFile && reportFile instanceof File) {
-                          return (
+                        const reportUrl = getFileUrl(reportFile);
+                        return reportUrl ? (
                             <div className="mb-2">
                               <a
-                                href={URL.createObjectURL(reportFile)}
+                              href={reportUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 underline text-sm hover:text-blue-800"
                               >
-                                📄 View Report ({reportFile.name || 'file'})
+                              📄 View Report ({reportFile instanceof File ? reportFile.name : 'file'})
                               </a>
                             </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No report attached</div>
                           );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No report attached</div>;
                       })()}
                     </div>
                   </div>

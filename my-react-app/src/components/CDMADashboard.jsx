@@ -77,30 +77,42 @@ export default function CDMADashboard({
 
   // Helper functions for view
   const getListForView = (view) => {
+    let list = [];
     switch (view) {
       case "pending":
-        return pendingList;
+        list = pendingList;
+        break;
       case "allWorks":
-        return forwardedSubmissions.filter(s => {
+        list = forwardedSubmissions.filter(s => {
           const status = (s.status || "").trim().toLowerCase();
           const section = (s.forwardedTo?.section || "").trim().toLowerCase();
           return status.includes("forwarded to cdma") || section.includes("cdma") || 
                  status === "cdma approved" || status === "cdma rejected";
         });
+        break;
       case "approved":
-        return approvedList;
+        list = approvedList;
+        break;
       case "rejected":
-        return rejectedList;
+        list = rejectedList;
+        break;
       case "noOfCrs":
-        return forwardedSubmissions.filter(s => {
+        list = forwardedSubmissions.filter(s => {
           const status = (s.status || "").trim().toLowerCase();
           const section = (s.forwardedTo?.section || "").trim().toLowerCase();
           return status.includes("forwarded to cdma") || section.includes("cdma") || 
                  status === "cdma approved" || status === "cdma rejected";
         });
+        break;
       default:
-        return pendingList;
+        list = pendingList;
     }
+    // Sort by priority in ascending order
+    return [...list].sort((a, b) => {
+      const priorityA = Number(a.priority) || 0;
+      const priorityB = Number(b.priority) || 0;
+      return priorityA - priorityB;
+    });
   };
 
   const getViewTitle = (view) => {
@@ -300,8 +312,11 @@ export default function CDMADashboard({
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            logout?.();
-            window.location.href = "/";
+            const confirmed = window.confirm("Are you sure you want to logout?");
+            if (confirmed) {
+              logout?.();
+              window.location.href = "/";
+            }
           }}
         />
 
@@ -828,16 +843,23 @@ export default function CDMADashboard({
                       }
                     />
                   </div>
-                  {previewSubmission.workImage && (
-                    <div className="md:col-span-2 mt-2">
-                      <label className="text-sm text-gray-600">Work Image</label>
-                      <img
-                        src={URL.createObjectURL(previewSubmission.workImage)}
-                        alt=""
-                        className="mt-2 rounded max-h-60"
-                      />
-                    </div>
-                  )}
+                  {(() => {
+                    const imageFile = editable.workImage || previewSubmission.workImage;
+                    const imageUrl = getFileUrl(imageFile);
+                    return imageUrl && (
+                      <div className="md:col-span-2 mt-2">
+                        <label className="text-sm text-gray-600">Work Image</label>
+                        <img
+                          src={imageUrl}
+                          alt=""
+                          className="mt-2 rounded max-h-60"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* File uploads section */}
@@ -850,25 +872,25 @@ export default function CDMADashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Work Image</label>
                       {(() => {
                         const imgFile = editable.workImage || previewSubmission.workImage;
-                        if (imgFile && imgFile instanceof File) {
-                          return (
-                            <div className="mb-2">
-                              <img
-                                src={URL.createObjectURL(imgFile)}
-                                alt="Work"
-                                className="rounded max-h-40 border"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  if (e.target.nextSibling) {
-                                    e.target.nextSibling.style.display = 'block';
-                                  }
-                                }}
-                              />
-                              <div style={{display: 'none'}} className="text-sm text-gray-500">Image preview unavailable</div>
-                            </div>
-                          );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No image attached</div>;
+                        const imageUrl = getFileUrl(imgFile);
+                        return imageUrl ? (
+                          <div className="mb-2">
+                            <img
+                              src={imageUrl}
+                              alt="Work"
+                              className="rounded max-h-40 border"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) {
+                                  e.target.nextSibling.style.display = 'block';
+                                }
+                              }}
+                            />
+                            <div style={{display: 'none'}} className="text-sm text-gray-500">Image preview unavailable</div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No image attached</div>
+                        );
                       })()}
                     </div>
 
@@ -877,21 +899,21 @@ export default function CDMADashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Detailed Estimation Report</label>
                       {(() => {
                         const reportFile = editable.detailedReport || previewSubmission.detailedReport;
-                        if (reportFile && reportFile instanceof File) {
-                          return (
-                            <div className="mb-2">
-                              <a
-                                href={URL.createObjectURL(reportFile)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 underline text-sm hover:text-blue-800"
-                              >
-                                📄 View Report ({reportFile.name || 'file'})
-                              </a>
-                            </div>
-                          );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No report attached</div>;
+                        const reportUrl = getFileUrl(reportFile);
+                        return reportUrl ? (
+                          <div className="mb-2">
+                            <a
+                              href={reportUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 underline text-sm hover:text-blue-800"
+                            >
+                              📄 View Report ({reportFile instanceof File ? reportFile.name : 'file'})
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No report attached</div>
+                        );
                       })()}
                     </div>
 
@@ -900,21 +922,21 @@ export default function CDMADashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Committee Report</label>
                       {(() => {
                         const reportFile = editable.committeeReport || previewSubmission.committeeReport;
-                        if (reportFile && reportFile instanceof File) {
-                          return (
-                            <div className="mb-2">
-                              <a
-                                href={URL.createObjectURL(reportFile)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 underline text-sm hover:text-blue-800"
-                              >
-                                📄 View Report ({reportFile.name || 'file'})
-                              </a>
-                            </div>
-                          );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No report attached</div>;
+                        const reportUrl = getFileUrl(reportFile);
+                        return reportUrl ? (
+                          <div className="mb-2">
+                            <a
+                              href={reportUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 underline text-sm hover:text-blue-800"
+                            >
+                              📄 View Report ({reportFile instanceof File ? reportFile.name : 'file'})
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No report attached</div>
+                        );
                       })()}
                     </div>
 
@@ -923,21 +945,21 @@ export default function CDMADashboard({
                       <label className="text-sm text-gray-700 font-medium block mb-2">Council Resolution Report</label>
                       {(() => {
                         const reportFile = editable.councilResolution || previewSubmission.councilResolution;
-                        if (reportFile && reportFile instanceof File) {
-                          return (
-                            <div className="mb-2">
-                              <a
-                                href={URL.createObjectURL(reportFile)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 underline text-sm hover:text-blue-800"
-                              >
-                                📄 View Report ({reportFile.name || 'file'})
-                              </a>
-                            </div>
-                          );
-                        }
-                        return <div className="text-sm text-gray-500 mb-2">No report attached</div>;
+                        const reportUrl = getFileUrl(reportFile);
+                        return reportUrl ? (
+                          <div className="mb-2">
+                            <a
+                              href={reportUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 underline text-sm hover:text-blue-800"
+                            >
+                              📄 View Report ({reportFile instanceof File ? reportFile.name : 'file'})
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 mb-2">No report attached</div>
+                        );
                       })()}
                     </div>
                   </div>
