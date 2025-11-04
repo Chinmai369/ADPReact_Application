@@ -46,6 +46,7 @@ export default function CDMADashboard({
   const [rejectRemarks, setRejectRemarks] = useState("");
   const [showApprovePanel, setShowApprovePanel] = useState(false);
   const [approveRemarks, setApproveRemarks] = useState("");
+  const [selectedView, setSelectedView] = useState("pending"); // For card-based navigation
 
   const urlCache = useRef([]);
 
@@ -73,6 +74,51 @@ export default function CDMADashboard({
     const rejected = forwardedSubmissions.filter((s) => s.status === "CDMA Rejected");
     setRejectedList(rejected);
   }, [forwardedSubmissions]);
+
+  // Helper functions for view
+  const getListForView = (view) => {
+    switch (view) {
+      case "pending":
+        return pendingList;
+      case "allWorks":
+        return forwardedSubmissions.filter(s => {
+          const status = (s.status || "").trim().toLowerCase();
+          const section = (s.forwardedTo?.section || "").trim().toLowerCase();
+          return status.includes("forwarded to cdma") || section.includes("cdma") || 
+                 status === "cdma approved" || status === "cdma rejected";
+        });
+      case "approved":
+        return approvedList;
+      case "rejected":
+        return rejectedList;
+      case "noOfCrs":
+        return forwardedSubmissions.filter(s => {
+          const status = (s.status || "").trim().toLowerCase();
+          const section = (s.forwardedTo?.section || "").trim().toLowerCase();
+          return status.includes("forwarded to cdma") || section.includes("cdma") || 
+                 status === "cdma approved" || status === "cdma rejected";
+        });
+      default:
+        return pendingList;
+    }
+  };
+
+  const getViewTitle = (view) => {
+    switch (view) {
+      case "pending":
+        return "Pending Works (Forwarded from ENCPH)";
+      case "allWorks":
+        return "All Works";
+      case "approved":
+        return "Approved Tasks";
+      case "rejected":
+        return "Rejected Tasks";
+      case "noOfCrs":
+        return "All Works (by CR Number)";
+      default:
+        return "Pending Works (Forwarded from ENCPH)";
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -263,17 +309,34 @@ export default function CDMADashboard({
           <h2 className="font-semibold text-gray-700 mb-4">CDMA Dashboard</h2>
 
           {/* Statistics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
             {/* No. of CR's */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("noOfCrs")}
+              className={`bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition ${selectedView === "noOfCrs" ? "ring-2 ring-blue-500" : ""}`}
+            >
               <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
               <div className="text-xl font-bold text-blue-700">
-                {new Set(forwardedSubmissions.filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber)).size}
+                {(() => {
+                  // Use the same data source as getListForView("noOfCrs")
+                  const crList = getListForView("noOfCrs");
+                  const groupedByCR = {};
+                  crList.forEach((s) => {
+                    const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                    if (!groupedByCR[crKey]) groupedByCR[crKey] = [];
+                    groupedByCR[crKey].push(s);
+                  });
+                  // Exclude "__NO_CR__" from count (same as table logic)
+                  return Object.keys(groupedByCR).filter(key => key !== "__NO_CR__").length;
+                })()}
               </div>
             </div>
 
             {/* No. of Works */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("allWorks")}
+              className={`bg-purple-50 border border-purple-200 rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition ${selectedView === "allWorks" ? "ring-2 ring-purple-500" : ""}`}
+            >
               <div className="text-xs text-purple-600 font-medium mb-1">No. of Works</div>
               <div className="text-xl font-bold text-purple-700">
                 {forwardedSubmissions.filter(s => {
@@ -286,7 +349,10 @@ export default function CDMADashboard({
             </div>
 
             {/* No. of Pending */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("pending")}
+              className={`bg-yellow-50 border border-yellow-200 rounded-lg p-3 cursor-pointer hover:bg-yellow-100 transition ${selectedView === "pending" ? "ring-2 ring-yellow-500" : ""}`}
+            >
               <div className="text-xs text-yellow-600 font-medium mb-1">No. of Pending</div>
               <div className="text-xl font-bold text-yellow-700">
                 {pendingList.length}
@@ -294,7 +360,10 @@ export default function CDMADashboard({
             </div>
 
             {/* No. of Approved */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("approved")}
+              className={`bg-green-50 border border-green-200 rounded-lg p-3 cursor-pointer hover:bg-green-100 transition ${selectedView === "approved" ? "ring-2 ring-green-500" : ""}`}
+            >
               <div className="text-xs text-green-600 font-medium mb-1">No. of Approved</div>
               <div className="text-xl font-bold text-green-700">
                 {approvedList.length}
@@ -302,20 +371,16 @@ export default function CDMADashboard({
             </div>
 
             {/* No. of Rejected */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("rejected")}
+              className={`bg-red-50 border border-red-200 rounded-lg p-3 cursor-pointer hover:bg-red-100 transition ${selectedView === "rejected" ? "ring-2 ring-red-500" : ""}`}
+            >
               <div className="text-xs text-red-600 font-medium mb-1">No. of Rejected</div>
               <div className="text-xl font-bold text-red-700">
                 {rejectedList.length}
               </div>
             </div>
 
-            {/* Sent back REJECTED LIST */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <div className="text-xs text-orange-600 font-medium mb-1">Sent back REJECTED LIST</div>
-              <div className="text-xl font-bold text-orange-700">
-                0
-              </div>
-            </div>
           </div>
 
           {/* banners */}
@@ -335,93 +400,193 @@ export default function CDMADashboard({
             </div>
           )}
 
-          {/* Pending table */}
-          <h3 className="text-sm text-gray-600 mb-2">Pending Works (Forwarded from ENCPH)</h3>
-          {pendingList.length === 0 ? (
-            <p className="text-gray-500 text-sm">No items to review.</p>
-          ) : (
-            <div className="overflow-auto max-h-80">
-              <table className="min-w-full text-sm border-collapse">
-                <thead className="bg-gray-100 border-b">
-                  <tr>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                    <th className="p-2 text-left text-xs">Proposal</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
-                    <th className="p-2 text-left text-xs">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingList.map((s, i) => (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2 text-xs">{i + 1}</td>
-                      <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                      <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                      <td className="p-2 text-xs">{s.sector}</td>
-                      <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                      <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                      <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                      <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
-                        {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                      </td>
-                      <td className="p-2 text-xs">{s.priority}</td>
-                      <td className="p-2 text-xs">
-                        {s.workImage ? (
-                          <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                        ) : (<span className="text-gray-400">No image</span>)}
-                      </td>
-                      <td className="p-2 text-xs">
-                        {s.detailedReport ? (
-                          <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                        ) : (<span className="text-gray-400">No report</span>)}
-                      </td>
-                      <td className="p-2 text-xs">Forwarded from ENCPH</td>
-                      <td className="p-2">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openPreview(s)}
-                            className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
-                          >
-                            Review
-                          </button>
-                          <button
-                            onClick={() => approve(s.id)}
-                            disabled={isActionDisabled(s.status)}
-                            className={`px-2 py-1 text-xs rounded ${
-                              s.status === "CDMA Approved"
-                                ? "bg-gray-300"
-                                : "bg-green-600 text-white"
-                            }`}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => reject(s.id)}
-                            disabled={s.status === "CDMA Rejected"}
-                            className={`px-2 py-1 text-xs rounded ${
-                              s.status === "CDMA Rejected"
-                                ? "bg-gray-300"
-                                : "bg-red-600 text-white"
-                            }`}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* Dynamic Table based on selected view */}
+          {(() => {
+            const currentList = getListForView(selectedView);
+            const viewTitle = getViewTitle(selectedView);
+            
+            return (
+              <>
+                <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
+                {currentList.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No items to display.</p>
+                ) : (
+                  <div className="overflow-auto max-h-80">
+                    <table className="min-w-full text-sm border-collapse">
+                      <thead className="bg-gray-100 border-b">
+                        <tr>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
+                          <th className="p-2 text-left text-xs">Proposal</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
+                          {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
+                          {(selectedView === "rejected") && <th className="p-2 text-left text-xs">Remarks</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          if (selectedView === "noOfCrs") {
+                            // Group by CR number for CR view
+                            const groupedByCR = {};
+                            currentList.forEach((s) => {
+                              const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                              if (!groupedByCR[crKey]) {
+                                groupedByCR[crKey] = [];
+                              }
+                              groupedByCR[crKey].push(s);
+                            });
+                            
+                            const crGroups = Object.values(groupedByCR).filter(group => {
+                              // Filter out groups with __NO_CR__ key
+                              const firstItem = group[0];
+                              const crKey = (firstItem.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                              return crKey !== "__NO_CR__";
+                            });
+                            
+                            let globalSerial = 0;
+                            
+                            return crGroups.map((group) => {
+                              return group.map((s, idxInGroup) => {
+                                const isFirstInGroup = idxInGroup === 0;
+                                if (isFirstInGroup) globalSerial++;
+                                return (
+                                  <tr key={s.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? globalSerial : ""}</td>
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? s.sector : ""}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                    <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                      {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">{s.priority}</td>
+                                    <td className="p-2 text-xs align-top">
+                                      {s.workImage ? (
+                                        <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                      ) : (<span className="text-gray-400">No image</span>)}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">
+                                      {s.detailedReport ? (
+                                        <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                      ) : (<span className="text-gray-400">No report</span>)}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                                  </tr>
+                                );
+                              });
+                            }).flat();
+                          } else if (selectedView === "allWorks") {
+                            // For allWorks view, show serial number for every row
+                            return currentList.map((s, i) => (
+                              <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top">{i + 1}</td>
+                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.priority}</td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.workImage ? (
+                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No image</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.detailedReport ? (
+                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                              </tr>
+                            ));
+                          } else {
+                            // For other views (pending, approved, rejected), show serial number for every row
+                            return currentList.map((s, i) => (
+                              <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top">{i + 1}</td>
+                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.priority}</td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.workImage ? (
+                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No image</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.detailedReport ? (
+                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.status || "Forwarded from ENCPH"}</td>
+                                {selectedView === "pending" && (
+                                  <td className="p-2 align-top">
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => openPreview(s)}
+                                        className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
+                                      >
+                                        Review
+                                      </button>
+                                      <button
+                                        onClick={() => approve(s.id)}
+                                        disabled={isActionDisabled(s.status)}
+                                        className={`px-2 py-1 text-xs rounded ${
+                                          s.status === "CDMA Approved"
+                                            ? "bg-gray-300"
+                                            : "bg-green-600 text-white"
+                                        }`}
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => reject(s.id)}
+                                        disabled={s.status === "CDMA Rejected"}
+                                        className={`px-2 py-1 text-xs rounded ${
+                                          s.status === "CDMA Rejected"
+                                            ? "bg-gray-300"
+                                            : "bg-red-600 text-white"
+                                        }`}
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                                {selectedView === "rejected" && (
+                                  <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                                )}
+                              </tr>
+                            ));
+                          }
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Approve Remarks Modal */}
           {showApprovePanel && previewSubmission && (
@@ -540,63 +705,9 @@ export default function CDMADashboard({
             </div>
           )}
 
-          {/* Approved Table */}
-          {approvedList.length > 0 && (
-            <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Approved by CDMA</h4>
-              <div className="overflow-auto max-h-48">
-               <table className="min-w-full text-sm border-collapse">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                      <th className="p-2 text-left text-xs">Proposal</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {approvedList.map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2 text-xs">{i + 1}</td>
-                        <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                        <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                        <td className="p-2 text-xs">{s.sector}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
-                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                        </td>
-                        <td className="p-2 text-xs">{s.priority}</td>
-                        <td className="p-2 text-xs">
-                          {s.workImage ? (
-                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No image</span>)}
-                        </td>
-                        <td className="p-2 text-xs">
-                          {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No report</span>)}
-                        </td>
-                        <td className="p-2 text-xs text-green-700">CDMA Approved</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
-          {/* Rejected Table */}
-          {rejectedList.length > 0 && (
+          {/* Rejected Table - Only show if viewing default (pending) */}
+          {selectedView === "pending" && rejectedList.length > 0 && (
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Rejected by CDMA</h4>
               <div className="overflow-auto max-h-48">

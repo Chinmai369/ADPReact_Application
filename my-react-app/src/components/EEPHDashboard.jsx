@@ -453,7 +453,24 @@ export default function EEPHDashboard({
             >
               <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
               <div className="text-xl font-bold text-blue-700">
-                {new Set(forwardedSubmissions.filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber)).size}
+                {(() => {
+                  // Use the same data source as getListForView("noOfCrs")
+                  const crList = forwardedSubmissions.filter(s => {
+                    const status = (s.status || "").trim().toLowerCase();
+                    const section = (s.forwardedTo?.section || "").trim().toLowerCase();
+                    return status.includes("forwarded to eeph") || section === "eeph" || 
+                           status.includes("eeph approved") || status.includes("eeph rejected") ||
+                           status.includes("forwarded to seph") || section === "seph";
+                  });
+                  const groupedByCR = {};
+                  crList.forEach((s) => {
+                    const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                    if (!groupedByCR[crKey]) groupedByCR[crKey] = [];
+                    groupedByCR[crKey].push(s);
+                  });
+                  // Exclude "__NO_CR__" from count (same as table logic)
+                  return Object.keys(groupedByCR).filter(key => key !== "__NO_CR__").length;
+                })()}
               </div>
             </div>
 
@@ -572,83 +589,192 @@ export default function EEPHDashboard({
                         </tr>
                       </thead>
                       <tbody>
-                        {currentList.map((s, i) => (
-                          <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="p-2 text-xs">{i + 1}</td>
-                            <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                            <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                            <td className="p-2 text-xs">{s.sector}</td>
-                            <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                            <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                            <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                            <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
-                              {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                            </td>
-                            <td className="p-2 text-xs">{s.priority}</td>
-                            <td className="p-2 text-xs">
-                              {s.workImage ? (
-                                <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                              ) : (<span className="text-gray-400">No image</span>)}
-                            </td>
-                            <td className="p-2 text-xs">
-                              {s.detailedReport ? (
-                                <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                              ) : (<span className="text-gray-400">No report</span>)}
-                            </td>
-                            <td className="p-2 text-xs">
-                              {selectedView === "pending" ? (
-                                "Pending"
-                              ) : selectedView === "rejected" || selectedView === "sentBackRejected" ? (
-                                <span className="text-red-700">
-                                  {s.status === "EEPH Rejected" ? "Rejected by EEPH" : "Rejected by SEPH"}
-                                </span>
-                              ) : selectedView === "approved" ? (
-                                <span className="text-green-700">{s.status}</span>
-                              ) : selectedView === "forwarded" ? (
-                                <span className="text-blue-700">{s.status}</span>
-                              ) : (
-                                s.status || "Pending"
-                              )}
-                            </td>
-                            {showActions && (
-                              <td className="p-2">
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => openPreview(s)}
-                                    className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
-                                  >
-                                    Review
-                                  </button>
-                                  <button
-                                    onClick={() => approve(s.id)}
-                                    disabled={isActionDisabled(s.status)}
-                                    className={`px-2 py-1 text-xs rounded ${
-                                      s.status === "EEPH Approved"
-                                        ? "bg-gray-300"
-                                        : "bg-green-600 text-white"
-                                    }`}
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={() => reject(s.id)}
-                                    disabled={s.status === "EEPH Rejected"}
-                                    className={`px-2 py-1 text-xs rounded ${
-                                      s.status === "EEPH Rejected"
-                                        ? "bg-gray-300"
-                                        : "bg-red-600 text-white"
-                                    }`}
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              </td>
-                            )}
-                            {!showActions && (selectedView === "rejected" || selectedView === "sentBackRejected") && (
-                              <td className="p-2 text-xs text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
-                            )}
-                          </tr>
-                        ))}
+                        {(() => {
+                          // Views that should show serial number for every row: allWorks, pending, forwarded, rejected, sentBackRejected
+                          const viewsWithSerialNumbers = ["allWorks", "pending", "forwarded", "rejected", "sentBackRejected"];
+                          
+                          if (viewsWithSerialNumbers.includes(selectedView)) {
+                            return currentList.map((s, i) => (
+                              <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top">{i + 1}</td>
+                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.priority}</td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.workImage ? (
+                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No image</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.detailedReport ? (
+                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  {selectedView === "pending" ? (
+                                    "Pending"
+                                  ) : selectedView === "rejected" || selectedView === "sentBackRejected" ? (
+                                    <span className="text-red-700">
+                                      {s.status === "EEPH Rejected" ? "Rejected by EEPH" : "Rejected by SEPH"}
+                                    </span>
+                                  ) : selectedView === "approved" ? (
+                                    <span className="text-green-700">{s.status}</span>
+                                  ) : selectedView === "forwarded" ? (
+                                    <span className="text-blue-700">{s.status}</span>
+                                  ) : (
+                                    s.status || "Pending"
+                                  )}
+                                </td>
+                                {showActions && (
+                                  <td className="p-2 align-top">
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => openPreview(s)}
+                                        className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
+                                      >
+                                        Review
+                                      </button>
+                                      <button
+                                        onClick={() => approve(s.id)}
+                                        disabled={isActionDisabled(s.status)}
+                                        className={`px-2 py-1 text-xs rounded ${
+                                          s.status === "EEPH Approved"
+                                            ? "bg-gray-300"
+                                            : "bg-green-600 text-white"
+                                        }`}
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => reject(s.id)}
+                                        disabled={s.status === "EEPH Rejected"}
+                                        className={`px-2 py-1 text-xs rounded ${
+                                          s.status === "EEPH Rejected"
+                                            ? "bg-gray-300"
+                                            : "bg-red-600 text-white"
+                                        }`}
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                                {!showActions && (selectedView === "rejected" || selectedView === "sentBackRejected") && (
+                                  <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                                )}
+                              </tr>
+                            ));
+                          }
+                          
+                          // For other views (like "noOfCrs", "approved"), group by CR number (case-insensitive, trimmed)
+                          const groupedByCR = {};
+                          currentList.forEach((s) => {
+                            const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                            if (!groupedByCR[crKey]) {
+                              groupedByCR[crKey] = [];
+                            }
+                            groupedByCR[crKey].push(s);
+                          });
+                          
+                          // Filter out groups with __NO_CR__ key (same as card count logic)
+                          const crGroups = Object.values(groupedByCR).filter(group => {
+                            const firstItem = group[0];
+                            const crKey = (firstItem.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                            return crKey !== "__NO_CR__";
+                          });
+                          let globalSerial = 0;
+                          
+                          return crGroups.map((group, groupIdx) => {
+                            return group.map((s, idxInGroup) => {
+                              const isFirstInGroup = idxInGroup === 0;
+                              if (isFirstInGroup) globalSerial++;
+                              return (
+                                <tr key={s.id} className="border-b hover:bg-gray-50">
+                                  <td className="p-2 text-xs align-top">{isFirstInGroup ? globalSerial : ""}</td>
+                                  <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                  <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                  <td className="p-2 text-xs align-top">{isFirstInGroup ? s.sector : ""}</td>
+                                  <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                  <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                  <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                  <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                    {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                  </td>
+                                  <td className="p-2 text-xs align-top">{s.priority}</td>
+                                  <td className="p-2 text-xs align-top">
+                                    {s.workImage ? (
+                                      <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                    ) : (<span className="text-gray-400">No image</span>)}
+                                  </td>
+                                  <td className="p-2 text-xs align-top">
+                                    {s.detailedReport ? (
+                                      <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                    ) : (<span className="text-gray-400">No report</span>)}
+                                  </td>
+                                  <td className="p-2 text-xs align-top">
+                                    {selectedView === "pending" ? (
+                                      "Pending"
+                                    ) : selectedView === "rejected" || selectedView === "sentBackRejected" ? (
+                                      <span className="text-red-700">
+                                        {s.status === "EEPH Rejected" ? "Rejected by EEPH" : "Rejected by SEPH"}
+                                      </span>
+                                    ) : selectedView === "approved" ? (
+                                      <span className="text-green-700">{s.status}</span>
+                                    ) : selectedView === "forwarded" ? (
+                                      <span className="text-blue-700">{s.status}</span>
+                                    ) : (
+                                      s.status || "Pending"
+                                    )}
+                                  </td>
+                                  {showActions && (
+                                    <td className="p-2 align-top">
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => openPreview(s)}
+                                          className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
+                                        >
+                                          Review
+                                        </button>
+                                        <button
+                                          onClick={() => approve(s.id)}
+                                          disabled={isActionDisabled(s.status)}
+                                          className={`px-2 py-1 text-xs rounded ${
+                                            s.status === "EEPH Approved"
+                                              ? "bg-gray-300"
+                                              : "bg-green-600 text-white"
+                                          }`}
+                                        >
+                                          Approve
+                                        </button>
+                                        <button
+                                          onClick={() => reject(s.id)}
+                                          disabled={s.status === "EEPH Rejected"}
+                                          className={`px-2 py-1 text-xs rounded ${
+                                            s.status === "EEPH Rejected"
+                                              ? "bg-gray-300"
+                                              : "bg-red-600 text-white"
+                                          }`}
+                                        >
+                                          Reject
+                                        </button>
+                                      </div>
+                                    </td>
+                                  )}
+                                  {!showActions && (selectedView === "rejected" || selectedView === "sentBackRejected") && (
+                                    <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                                  )}
+                                </tr>
+                              );
+                            });
+                          }).flat();
+                        })()}
                       </tbody>
                     </table>
                   </div>

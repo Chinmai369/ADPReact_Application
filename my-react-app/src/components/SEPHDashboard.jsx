@@ -53,6 +53,7 @@ export default function SEPHDashboard({
   const [showApprovePanel, setShowApprovePanel] = useState(false);
   const [approveRemarks, setApproveRemarks] = useState("");
   const [approvalConfirmed, setApprovalConfirmed] = useState(false);
+  const [selectedView, setSelectedView] = useState("pending"); // For card-based navigation
 
   const urlCache = useRef([]);
 
@@ -96,6 +97,57 @@ export default function SEPHDashboard({
     );
     setRejectedList(rejected);
   }, [forwardedSubmissions]);
+
+  // Helper functions for view
+  const getListForView = (view) => {
+    switch (view) {
+      case "pending":
+        return pendingList;
+      case "allWorks":
+        return forwardedSubmissions.filter(s => {
+          const status = (s.status || "").trim().toLowerCase();
+          const section = (s.forwardedTo?.section || "").trim().toLowerCase();
+          return status.includes("forwarded to seph") || section === "seph" || 
+                 status.includes("seph approved") || status.includes("seph rejected") ||
+                 status.includes("forwarded to encph") || section.includes("encph");
+        });
+      case "forwarded":
+        return forwardedList;
+      case "rejected":
+        return rejectedList.filter(s => s.status === "SEPH Rejected");
+      case "sentBackRejected":
+        return forwardedSubmissions.filter(s => s.status === "ENCPH Rejected");
+      case "noOfCrs":
+        return forwardedSubmissions.filter(s => {
+          const status = (s.status || "").trim().toLowerCase();
+          const section = (s.forwardedTo?.section || "").trim().toLowerCase();
+          return status.includes("forwarded to seph") || section === "seph" || 
+                 status.includes("seph approved") || status.includes("seph rejected") ||
+                 status.includes("forwarded to encph") || section.includes("encph");
+        });
+      default:
+        return pendingList;
+    }
+  };
+
+  const getViewTitle = (view) => {
+    switch (view) {
+      case "pending":
+        return "Pending Works";
+      case "allWorks":
+        return "All Works";
+      case "forwarded":
+        return "Forwarded Tasks";
+      case "rejected":
+        return "Rejected Tasks";
+      case "sentBackRejected":
+        return "Sent back REJECTED LIST";
+      case "noOfCrs":
+        return "All Works (by CR Number)";
+      default:
+        return "Pending Works";
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -307,7 +359,7 @@ export default function SEPHDashboard({
   const forwardApprovedToDept = () => {
     if (!dept || !section || !previewSubmission)
       return alert("Select department and section");
-
+    
     setForwardedSubmissions((prev) => {
       const updated = prev.map((f) =>
         f.id === previewSubmission.id
@@ -390,15 +442,32 @@ export default function SEPHDashboard({
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             {/* No. of CR's */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("noOfCrs")}
+              className={`bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition ${selectedView === "noOfCrs" ? "ring-2 ring-blue-500" : ""}`}
+            >
               <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
               <div className="text-xl font-bold text-blue-700">
-                {new Set(forwardedSubmissions.filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber)).size}
+                {(() => {
+                  // Use the same data source as getListForView("noOfCrs")
+                  const crList = getListForView("noOfCrs");
+                  const groupedByCR = {};
+                  crList.forEach((s) => {
+                    const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                    if (!groupedByCR[crKey]) groupedByCR[crKey] = [];
+                    groupedByCR[crKey].push(s);
+                  });
+                  // Exclude "__NO_CR__" from count (same as table logic)
+                  return Object.keys(groupedByCR).filter(key => key !== "__NO_CR__").length;
+                })()}
               </div>
             </div>
 
             {/* No. of Works */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("allWorks")}
+              className={`bg-purple-50 border border-purple-200 rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition ${selectedView === "allWorks" ? "ring-2 ring-purple-500" : ""}`}
+            >
               <div className="text-xs text-purple-600 font-medium mb-1">No. of Works</div>
               <div className="text-xl font-bold text-purple-700">
                 {forwardedSubmissions.filter(s => {
@@ -412,7 +481,10 @@ export default function SEPHDashboard({
             </div>
 
             {/* No. of Pending */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("pending")}
+              className={`bg-yellow-50 border border-yellow-200 rounded-lg p-3 cursor-pointer hover:bg-yellow-100 transition ${selectedView === "pending" ? "ring-2 ring-yellow-500" : ""}`}
+            >
               <div className="text-xs text-yellow-600 font-medium mb-1">No. of Pending</div>
               <div className="text-xl font-bold text-yellow-700">
                 {pendingList.length}
@@ -420,7 +492,10 @@ export default function SEPHDashboard({
             </div>
 
             {/* No. of Forwarded */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("forwarded")}
+              className={`bg-indigo-50 border border-indigo-200 rounded-lg p-3 cursor-pointer hover:bg-indigo-100 transition ${selectedView === "forwarded" ? "ring-2 ring-indigo-500" : ""}`}
+            >
               <div className="text-xs text-indigo-600 font-medium mb-1">No. of Forwarded</div>
               <div className="text-xl font-bold text-indigo-700">
                 {forwardedList.length}
@@ -428,7 +503,10 @@ export default function SEPHDashboard({
             </div>
 
             {/* No. of Rejected */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("rejected")}
+              className={`bg-red-50 border border-red-200 rounded-lg p-3 cursor-pointer hover:bg-red-100 transition ${selectedView === "rejected" ? "ring-2 ring-red-500" : ""}`}
+            >
               <div className="text-xs text-red-600 font-medium mb-1">No. of Rejected</div>
               <div className="text-xl font-bold text-red-700">
                 {rejectedList.filter(s => s.status === "SEPH Rejected").length}
@@ -436,7 +514,10 @@ export default function SEPHDashboard({
             </div>
 
             {/* Sent back REJECTED LIST */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <div 
+              onClick={() => setSelectedView("sentBackRejected")}
+              className={`bg-orange-50 border border-orange-200 rounded-lg p-3 cursor-pointer hover:bg-orange-100 transition ${selectedView === "sentBackRejected" ? "ring-2 ring-orange-500" : ""}`}
+            >
               <div className="text-xs text-orange-600 font-medium mb-1">Sent back REJECTED LIST</div>
               <div className="text-xl font-bold text-orange-700">
                 {forwardedSubmissions.filter(s => s.status === "ENCPH Rejected").length}
@@ -461,93 +542,193 @@ export default function SEPHDashboard({
             </div>
           )}
 
-          {/* Pending table */}
-          <h3 className="text-sm text-gray-600 mb-2">Pending Works</h3>
-          {pendingList.length === 0 ? (
-            <p className="text-gray-500 text-sm">No items to review.</p>
+          {/* Dynamic Table based on selected view */}
+          {(() => {
+            const currentList = getListForView(selectedView);
+            const viewTitle = getViewTitle(selectedView);
+            
+            return (
+              <>
+                <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
+                {currentList.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No items to display.</p>
           ) : (
             <div className="overflow-auto max-h-80">
               <table className="min-w-full text-sm border-collapse">
                 <thead className="bg-gray-100 border-b">
                   <tr>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                    <th className="p-2 text-left text-xs">Proposal</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                    <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
-                    <th className="p-2 text-left text-xs">Actions</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
+                          <th className="p-2 text-left text-xs">Proposal</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
+                          {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
+                          {(selectedView === "rejected" || selectedView === "sentBackRejected") && <th className="p-2 text-left text-xs">Remarks</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingList.map((s, i) => (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2 text-xs">{i + 1}</td>
-                      <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                      <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                      <td className="p-2 text-xs">{s.sector}</td>
-                      <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                      <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                      <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                      <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
-                        {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                      </td>
-                      <td className="p-2 text-xs">{s.priority}</td>
-                      <td className="p-2 text-xs">
-                        {s.workImage ? (
-                          <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                        ) : (<span className="text-gray-400">No image</span>)}
-                      </td>
-                      <td className="p-2 text-xs">
-                        {s.detailedReport ? (
-                          <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                        ) : (<span className="text-gray-400">No report</span>)}
-                      </td>
-                      <td className="p-2 text-xs">Pending</td>
-                      <td className="p-2">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openPreview(s)}
-                            className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
-                          >
-                            Review
-                          </button>
-                          <button
-                            onClick={() => approve(s.id)}
-                            disabled={isActionDisabled(s.status)}
-                            className={`px-2 py-1 text-xs rounded ${
-                              s.status === "SEPH Approved"
-                                ? "bg-gray-300"
-                                : "bg-green-600 text-white"
-                            }`}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => reject(s.id)}
-                            disabled={s.status === "SEPH Rejected"}
-                            className={`px-2 py-1 text-xs rounded ${
-                              s.status === "SEPH Rejected"
-                                ? "bg-gray-300"
-                                : "bg-red-600 text-white"
-                            }`}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        {(() => {
+                          if (selectedView === "noOfCrs") {
+                            // Group by CR number for CR view
+                            const groupedByCR = {};
+                            currentList.forEach((s) => {
+                              const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                              if (!groupedByCR[crKey]) {
+                                groupedByCR[crKey] = [];
+                              }
+                              groupedByCR[crKey].push(s);
+                            });
+                            
+                            const crGroups = Object.values(groupedByCR).filter(group => {
+                              // Filter out groups with __NO_CR__ key
+                              const firstItem = group[0];
+                              const crKey = (firstItem.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                              return crKey !== "__NO_CR__";
+                            });
+                            
+                            let globalSerial = 0;
+                            
+                            return crGroups.map((group) => {
+                              return group.map((s, idxInGroup) => {
+                                const isFirstInGroup = idxInGroup === 0;
+                                if (isFirstInGroup) globalSerial++;
+                                return (
+                                  <tr key={s.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? globalSerial : ""}</td>
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? s.sector : ""}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                    <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                      {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">{s.priority}</td>
+                                    <td className="p-2 text-xs align-top">
+                                      {s.workImage ? (
+                                        <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                      ) : (<span className="text-gray-400">No image</span>)}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">
+                                      {s.detailedReport ? (
+                                        <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                      ) : (<span className="text-gray-400">No report</span>)}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                                  </tr>
+                                );
+                              });
+                            }).flat();
+                          } else if (selectedView === "allWorks") {
+                            // For allWorks view, show serial number for every row
+                            return currentList.map((s, i) => (
+                              <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top">{i + 1}</td>
+                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.priority}</td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.workImage ? (
+                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No image</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.detailedReport ? (
+                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                              </tr>
+                            ));
+                          } else {
+                            // For other views (pending, forwarded, rejected, sentBackRejected), show serial number for every row
+                            return currentList.map((s, i) => (
+                              <tr key={s.id} className="border-b hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top">{i + 1}</td>
+                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.priority}</td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.workImage ? (
+                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No image</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  {s.detailedReport ? (
+                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                                {selectedView === "pending" && (
+                                  <td className="p-2 align-top">
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => openPreview(s)}
+                                        className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
+                                      >
+                                        Review
+                                      </button>
+                                      <button
+                                        onClick={() => approve(s.id)}
+                                        disabled={isActionDisabled(s.status)}
+                                        className={`px-2 py-1 text-xs rounded ${
+                                          s.status === "SEPH Approved"
+                                            ? "bg-gray-300"
+                                            : "bg-green-600 text-white"
+                                        }`}
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => reject(s.id)}
+                                        disabled={s.status === "SEPH Rejected"}
+                                        className={`px-2 py-1 text-xs rounded ${
+                                          s.status === "SEPH Rejected"
+                                            ? "bg-gray-300"
+                                            : "bg-red-600 text-white"
+                                        }`}
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                                {(selectedView === "rejected" || selectedView === "sentBackRejected") && (
+                                  <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                                )}
+                              </tr>
+                            ));
+                          }
+                        })()}
                 </tbody>
               </table>
             </div>
           )}
+              </>
+            );
+          })()}
 
           {/* Approve Remarks Modal */}
           {showApprovePanel && previewSubmission && (
@@ -556,7 +737,7 @@ export default function SEPHDashboard({
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-semibold text-lg">
                     {approvalConfirmed ? "Forward Approved Work to Department" : "Approve Work"}
-                  </h4>
+              </h4>
                   <button
                     onClick={() => {
                       setShowApprovePanel(false);
@@ -584,7 +765,7 @@ export default function SEPHDashboard({
                 
                 {!approvalConfirmed ? (
                   <>
-                    <div>
+                <div>
                       <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
                       <textarea
                         className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
@@ -624,43 +805,43 @@ export default function SEPHDashboard({
                     <div className="space-y-4">
                       <div>
                         <label className="text-sm text-gray-600 font-medium">Department</label>
-                        <select
+                  <select
                           className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          value={dept}
-                          onChange={(e) => setDept(e.target.value)}
-                        >
-                          <option value="">Select department</option>
-                          {Object.keys(sectionMap).map((d) => (
+                    value={dept}
+                    onChange={(e) => setDept(e.target.value)}
+                  >
+                    <option value="">Select department</option>
+                    {Object.keys(sectionMap).map((d) => (
                             <option key={d} value={d}>{d}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
+                    ))}
+                  </select>
+                </div>
+                <div>
                         <label className="text-sm text-gray-600 font-medium">Section</label>
-                        <select
+                  <select
                           className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          value={section}
-                          onChange={(e) => setSection(e.target.value)}
-                          disabled={!dept}
-                        >
-                          <option value="">Select section</option>
-                          {dept &&
-                            sectionMap[dept].map((s) => (
+                    value={section}
+                    onChange={(e) => setSection(e.target.value)}
+                    disabled={!dept}
+                  >
+                    <option value="">Select section</option>
+                    {dept &&
+                      sectionMap[dept].map((s) => (
                               <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                      </div>
-                      <div>
+                      ))}
+                  </select>
+                </div>
+                <div>
                         <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
                         <textarea
                           className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           rows={4}
-                          value={forwardRemarks}
-                          onChange={(e) => setForwardRemarks(e.target.value)}
+                    value={forwardRemarks}
+                    onChange={(e) => setForwardRemarks(e.target.value)}
                           placeholder="Enter remarks for forwarding (optional)..."
-                        />
-                      </div>
-                    </div>
+                  />
+                </div>
+              </div>
                     {forwardSuccess && (
                       <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded text-sm">
                         {forwardSuccess}
@@ -681,20 +862,20 @@ export default function SEPHDashboard({
                       >
                         Cancel
                       </button>
-                      <button
-                        onClick={forwardApprovedToDept}
+                <button
+                  onClick={forwardApprovedToDept}
                         disabled={!dept || !section}
                         className={`px-5 py-2 rounded ${
                           !dept || !section
                             ? "bg-gray-400 cursor-not-allowed"
                             : "bg-green-600 hover:bg-green-700"
                         } text-white`}
-                      >
-                        Forward
-                      </button>
-                    </div>
+                >
+                  Forward
+                </button>
+              </div>
                   </>
-                )}
+              )}
               </div>
             </div>
           )}
@@ -725,41 +906,41 @@ export default function SEPHDashboard({
                     <p className="text-sm"><span className="font-medium">Cost:</span> {fmtINR(previewSubmission.cost)}</p>
                   </div>
                 </div>
-                <div>
+              <div>
                   <label className="text-sm text-gray-600 font-medium">Remarks (Required)</label>
-                  <textarea
+                <textarea
                     className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     rows={6}
-                    value={rejectRemarks}
-                    onChange={(e) => setRejectRemarks(e.target.value)}
-                    placeholder="Please enter reason for rejection..."
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="Please enter reason for rejection..."
                     required
-                  />
-                </div>
+                />
+              </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowRejectPanel(false);
-                      setRejectRemarks("");
-                      setPreviewSubmission(null);
-                    }}
+                <button
+                  onClick={() => {
+                    setShowRejectPanel(false);
+                    setRejectRemarks("");
+                    setPreviewSubmission(null);
+                  }}
                     className="px-5 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmReject}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmReject}
                     className="px-5 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                  >
-                    Submit Rejection
-                  </button>
+                >
+                  Submit Rejection
+                </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Approved Table */}
-          {approvedList.length > 0 && (
+          {/* Approved Table - Only show if viewing default (pending) */}
+          {selectedView === "pending" && approvedList.length > 0 && (
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Approved by SEPH</h4>
               <div className="overflow-auto max-h-48">
@@ -813,119 +994,6 @@ export default function SEPHDashboard({
             </div>
           )}
 
-          {/* Rejected Table */}
-          {rejectedList.length > 0 && (
-            <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Rejected by SEPH</h4>
-              <div className="overflow-auto max-h-48">
-               <table className="min-w-full text-sm border-collapse">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                      <th className="p-2 text-left text-xs">Proposal</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
-                      <th className="p-2 text-left text-xs">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rejectedList.map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2 text-xs">{i + 1}</td>
-                        <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                        <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                        <td className="p-2 text-xs">{s.sector}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
-                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                        </td>
-                        <td className="p-2 text-xs">{s.priority}</td>
-                        <td className="p-2 text-xs">
-                          {s.workImage ? (
-                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No image</span>)}
-                        </td>
-                        <td className="p-2 text-xs">
-                          {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No report</span>)}
-                        </td>
-                        <td className="p-2 text-xs text-red-700">
-                          {s.status === "SEPH Rejected" ? "Rejected by SEPH" : "Rejected by ENCPH"}
-                        </td>
-                        <td className="p-2 text-xs text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Forwarded Table */}
-          {forwardedList.length > 0 && (
-            <div className="mt-6">
-              <h4 className="font-semibold mb-2 text-sm">Forwarded Tasks</h4>
-              <div className="overflow-auto max-h-48">
-                <table className="min-w-full text-sm border-collapse">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                      <th className="p-2 text-left text-xs">Proposal</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {forwardedList.map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2 text-xs">{i + 1}</td>
-                        <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                        <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                        <td className="p-2 text-xs">{s.sector}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
-                          {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
-                        </td>
-                        <td className="p-2 text-xs">{s.priority}</td>
-                        <td className="p-2 text-xs">
-                          {s.workImage ? (
-                            <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No image</span>)}
-                        </td>
-                        <td className="p-2 text-xs">
-                          {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No report</span>)}
-                        </td>
-                        <td className="p-2 text-xs text-blue-700">{s.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
 
           {/* Modal */}

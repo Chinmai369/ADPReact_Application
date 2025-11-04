@@ -376,10 +376,16 @@ export default function AdminDashboard({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
               <div className="text-xl font-bold text-blue-700">
-                {new Set([
-                  ...submissions.filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber),
-                  ...(forwardedSubmissions || []).filter(s => s.crNumber && s.crNumber.trim() !== "").map(s => s.crNumber)
-                ]).size}
+                {(() => {
+                  const groupedByCR = {};
+                  [...submissions, ...(forwardedSubmissions || [])].forEach((s) => {
+                    const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
+                    if (!groupedByCR[crKey]) groupedByCR[crKey] = [];
+                    groupedByCR[crKey].push(s);
+                  });
+                  // Exclude "__NO_CR__" from count
+                  return Object.keys(groupedByCR).filter(key => key !== "__NO_CR__").length;
+                })()}
               </div>
             </div>
 
