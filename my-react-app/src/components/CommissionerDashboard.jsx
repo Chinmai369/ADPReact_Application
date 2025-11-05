@@ -48,13 +48,27 @@ export default function CommissionerDashboard({
   const [showRejectPanel, setShowRejectPanel] = useState(false);
   const [rejectRemarks, setRejectRemarks] = useState("");
   const [showApprovePanel, setShowApprovePanel] = useState(false);
+  
+  // Multiple selection states
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
+  const [bulkRejectRemarks, setBulkRejectRemarks] = useState("");
+  const [showBulkApproveModal, setShowBulkApproveModal] = useState(false);
+  const [bulkApproveRemarks, setBulkApproveRemarks] = useState("");
   const [approveRemarks, setApproveRemarks] = useState("");
   const [approvalConfirmed, setApprovalConfirmed] = useState(false);
+  const [showBulkForwardModal, setShowBulkForwardModal] = useState(false);
+  const [bulkApprovedItems, setBulkApprovedItems] = useState([]);
   
   // View state for card-based navigation
   const [selectedView, setSelectedView] = useState("pending");
 
   const urlCache = useRef([]);
+
+  // Clear selection when view changes
+  useEffect(() => {
+    setSelectedItems([]);
+  }, [selectedView]);
 
   const sectionMap = {
     
@@ -375,6 +389,107 @@ export default function CommissionerDashboard({
     }, 1500);
   };
 
+  // --- Multiple Selection Functions ---
+  const handleSelectItem = (itemId) => {
+    setSelectedItems((prev) => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const currentList = getListForView(selectedView);
+    const eligibleItems = currentList.filter(s => {
+      const isCommissionerRejected = s.status === "Rejected" && 
+        (!s.rejectedBy || s.rejectedBy === "Commissioner" || s.rejectedBy === user?.username);
+      return !isActionDisabled(s.status) || isCommissionerRejected;
+    }).map(s => s.id);
+    
+    if (selectedItems.length === eligibleItems.length && eligibleItems.length > 0) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(eligibleItems);
+    }
+  };
+
+  const handleBulkApprove = () => {
+    if (selectedItems.length === 0) {
+      alert("Please select at least one item to approve.");
+      return;
+    }
+
+    // Open approval remarks modal
+    setShowBulkApproveModal(true);
+    setBulkApproveRemarks("");
+  };
+
+  const confirmBulkApprove = () => {
+    const count = selectedItems.length;
+
+    // First, approve the items
+    setForwardedSubmissions((prev) => {
+      return prev.map((f) => {
+        if (selectedItems.includes(f.id)) {
+          return { ...f, status: "Approved", remarks: bulkApproveRemarks || "" };
+        }
+        return f;
+      });
+    });
+
+    // Store the approved item IDs for forwarding
+    setBulkApprovedItems([...selectedItems]);
+    setSelectedItems([]);
+    
+    // Close approval modal
+    setShowBulkApproveModal(false);
+    setBulkApproveRemarks("");
+    
+    // Open forwarding modal
+    setShowBulkForwardModal(true);
+    setDept("");
+    setSection("");
+    setForwardRemarks("");
+  };
+
+  const handleBulkReject = () => {
+    if (selectedItems.length === 0) {
+      alert("Please select at least one item to reject.");
+      return;
+    }
+
+    setShowBulkRejectModal(true);
+  };
+
+  const confirmBulkReject = () => {
+    if (!bulkRejectRemarks) {
+      alert("Please enter remarks before rejecting.");
+      return;
+    }
+
+    const count = selectedItems.length;
+
+    setForwardedSubmissions((prev) => {
+      return prev.map((f) => {
+        if (selectedItems.includes(f.id)) {
+          return { 
+            ...f, 
+            status: "Rejected", 
+            remarks: bulkRejectRemarks, 
+            rejectedBy: "Commissioner" 
+          };
+        }
+        return f;
+      });
+    });
+
+    setSelectedItems([]);
+    setBulkRejectRemarks("");
+    setShowBulkRejectModal(false);
+    setRejectBanner(`${count} work(s) rejected successfully.`);
+    setTimeout(() => setRejectBanner(""), 3000);
+  };
+
   // --- Forward ---
   const forwardApprovedToDept = () => {
     if (!dept || !section || !previewSubmission) {
@@ -478,6 +593,50 @@ export default function CommissionerDashboard({
     }, 5000);
   };
 
+  // --- Bulk Forward ---
+  const forwardBulkApprovedToDept = () => {
+    if (!dept || !section || bulkApprovedItems.length === 0) {
+      alert("Select department and section");
+      return;
+    }
+
+    const newStatus = `Forwarded to ${section}`;
+    const count = bulkApprovedItems.length;
+
+    setForwardedSubmissions((prev) => {
+      return prev.map((f) => {
+        if (bulkApprovedItems.includes(f.id)) {
+          return {
+            ...f,
+            forwardedTo: {
+              department: dept,
+              section,
+              remarks: forwardRemarks,
+            },
+            status: newStatus,
+          };
+        }
+        return f;
+      });
+    });
+
+    // Close modal and clear state
+    setShowBulkForwardModal(false);
+    setBulkApprovedItems([]);
+    setDept("");
+    setSection("");
+    setForwardRemarks("");
+    
+    // Show alert
+    alert("Forwarded successfully!");
+    
+    // Set banner message
+    setForwardSuccess(`✅ Successfully Forwarded ${count} work(s) to ${section}!`);
+    setTimeout(() => {
+      setForwardSuccess("");
+    }, 5000);
+  };
+
 
   const renderFileLinks = (sub) => {
     const files = [];
@@ -519,8 +678,8 @@ export default function CommissionerDashboard({
           onLogout={() => {
             const confirmed = window.confirm("Are you sure you want to logout?");
             if (confirmed) {
-              logout?.();
-              window.location.href = "/";
+            logout?.();
+            window.location.href = "/";
             }
           }}
         />
@@ -631,6 +790,43 @@ export default function CommissionerDashboard({
           <h3 className="text-sm text-gray-600 mb-2">
                   {getViewTitle(selectedView)}
           </h3>
+                
+                {/* Bulk Action Buttons */}
+                {showActions && currentList.length > 0 && (
+                  <div className="mb-3 flex gap-2 items-center">
+                    <button
+                      onClick={handleBulkApprove}
+                      disabled={selectedItems.length === 0}
+                      className={`px-4 py-2 text-xs rounded ${
+                        selectedItems.length === 0
+                          ? "bg-gray-300 cursor-not-allowed text-gray-500"
+                          : "bg-green-600 text-white hover:bg-green-700"
+                      }`}
+                    >
+                      Approve Selected ({selectedItems.length})
+                    </button>
+                    <button
+                      onClick={handleBulkReject}
+                      disabled={selectedItems.length === 0}
+                      className={`px-4 py-2 text-xs rounded ${
+                        selectedItems.length === 0
+                          ? "bg-gray-300 cursor-not-allowed text-gray-500"
+                          : "bg-red-600 text-white hover:bg-red-700"
+                      }`}
+                    >
+                      Reject Selected ({selectedItems.length})
+                    </button>
+                    {selectedItems.length > 0 && (
+                      <button
+                        onClick={() => setSelectedItems([])}
+                        className="px-3 py-2 text-xs rounded bg-gray-400 text-white hover:bg-gray-500"
+                      >
+                        Clear Selection
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {currentList.length === 0 ? (
                   <p className="text-gray-500 text-sm">No items to display.</p>
           ) : (
@@ -638,6 +834,23 @@ export default function CommissionerDashboard({
             <table className="min-w-full text-sm border-collapse">
                 <thead className="bg-gray-100 border-b">
   <tr>
+                          {showActions && (
+                            <th className="p-2 text-left whitespace-nowrap text-xs">
+                              <input
+                                type="checkbox"
+                                checked={(() => {
+                                  const eligibleItems = currentList.filter(s => {
+                                    const isCommissionerRejected = s.status === "Rejected" && 
+                                      (!s.rejectedBy || s.rejectedBy === "Commissioner" || s.rejectedBy === user?.username);
+                                    return !isActionDisabled(s.status) || isCommissionerRejected;
+                                  }).map(s => s.id);
+                                  return eligibleItems.length > 0 && eligibleItems.every(id => selectedItems.includes(id));
+                                })()}
+                                onChange={handleSelectAll}
+                                className="cursor-pointer"
+                              />
+                            </th>
+                          )}
                           <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
@@ -665,8 +878,20 @@ export default function CommissionerDashboard({
                             return currentList.map((s, i) => {
                               const isCommissionerRejected = s.status === "Rejected" && 
                                 (!s.rejectedBy || s.rejectedBy === "Commissioner" || s.rejectedBy === user?.username);
+                              const canSelect = !isActionDisabled(s.status) || isCommissionerRejected;
                               return (
                                 <tr key={s.id} className="border-b hover:bg-gray-50">
+                                  {showActions && (
+                                    <td className="p-2 text-xs align-top">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedItems.includes(s.id)}
+                                        onChange={() => handleSelectItem(s.id)}
+                                        disabled={!canSelect}
+                                        className="cursor-pointer"
+                                      />
+                                    </td>
+                                  )}
                                   <td className="p-2 text-xs align-top">{i + 1}</td>
                                   <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
                                   <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
@@ -773,8 +998,20 @@ export default function CommissionerDashboard({
                               if (isFirstInGroup) globalSerial++;
                               const isCommissionerRejected = s.status === "Rejected" && 
                                 (!s.rejectedBy || s.rejectedBy === "Commissioner" || s.rejectedBy === user?.username);
+                              const canSelect = !isActionDisabled(s.status) || isCommissionerRejected;
                               return (
                                 <tr key={s.id} className="border-b hover:bg-gray-50">
+                                  {showActions && (
+                                    <td className="p-2 text-xs align-top">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedItems.includes(s.id)}
+                                        onChange={() => handleSelectItem(s.id)}
+                                        disabled={!canSelect}
+                                        className="cursor-pointer"
+                                      />
+                                    </td>
+                                  )}
                                   <td className="p-2 text-xs align-top">{isFirstInGroup ? globalSerial : ""}</td>
                                   <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
                                   <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
@@ -1129,6 +1366,198 @@ export default function CommissionerDashboard({
                   Submit Rejection
                 </button>
               </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Approve Modal */}
+          {showBulkApproveModal && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
+              <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-semibold text-lg">Approve {selectedItems.length} Selected Work(s)</h4>
+                  <button
+                    onClick={() => {
+                      setShowBulkApproveModal(false);
+                      setBulkApproveRemarks("");
+                    }}
+                    className="px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">You are about to approve {selectedItems.length} work(s).</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
+                  <textarea
+                    className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    rows={6}
+                    value={bulkApproveRemarks}
+                    onChange={(e) => setBulkApproveRemarks(e.target.value)}
+                    placeholder="Enter remarks for approval (optional)..."
+                  />
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowBulkApproveModal(false);
+                      setBulkApproveRemarks("");
+                    }}
+                    className="px-5 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmBulkApprove}
+                    className="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    Confirm Approval
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Reject Modal */}
+          {showBulkRejectModal && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
+              <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-semibold text-lg">Reject {selectedItems.length} Selected Work(s)</h4>
+                  <button
+                    onClick={() => {
+                      setShowBulkRejectModal(false);
+                      setBulkRejectRemarks("");
+                    }}
+                    className="px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">You are about to reject {selectedItems.length} work(s).</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600 font-medium">Remarks (Required)</label>
+                  <textarea
+                    className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    rows={6}
+                    value={bulkRejectRemarks}
+                    onChange={(e) => setBulkRejectRemarks(e.target.value)}
+                    placeholder="Please enter reason for rejection (will be applied to all selected items)..."
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowBulkRejectModal(false);
+                      setBulkRejectRemarks("");
+                    }}
+                    className="px-5 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmBulkReject}
+                    className="px-5 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Submit Rejection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Forward Modal */}
+          {showBulkForwardModal && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4">
+              <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 overflow-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-semibold text-lg">Forward {bulkApprovedItems.length} Approved Work(s) to Department</h4>
+                  <button
+                    onClick={() => {
+                      setShowBulkForwardModal(false);
+                      setBulkApprovedItems([]);
+                      setDept("");
+                      setSection("");
+                      setForwardRemarks("");
+                    }}
+                    className="px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">You are about to forward {bulkApprovedItems.length} approved work(s).</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-gray-600 font-medium">Department</label>
+                    <select
+                      className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      value={dept}
+                      onChange={(e) => setDept(e.target.value)}
+                    >
+                      <option value="">Select department</option>
+                      {Object.keys(sectionMap).map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600 font-medium">Section</label>
+                    <select
+                      className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      value={section}
+                      onChange={(e) => setSection(e.target.value)}
+                      disabled={!dept}
+                    >
+                      <option value="">Select section</option>
+                      {dept &&
+                        sectionMap[dept].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
+                    <textarea
+                      className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      rows={4}
+                      value={forwardRemarks}
+                      onChange={(e) => setForwardRemarks(e.target.value)}
+                      placeholder="Enter remarks for forwarding (optional)..."
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowBulkForwardModal(false);
+                      setBulkApprovedItems([]);
+                      setDept("");
+                      setSection("");
+                      setForwardRemarks("");
+                    }}
+                    className="px-5 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={forwardBulkApprovedToDept}
+                    disabled={!dept || !section}
+                    className={`px-5 py-2 rounded ${
+                      !dept || !section
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700"
+                    } text-white`}
+                  >
+                    Forward
+                  </button>
+                </div>
               </div>
             </div>
           )}
