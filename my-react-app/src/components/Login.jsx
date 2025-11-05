@@ -66,7 +66,7 @@ export default function Login({ onLogin }) {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-100 via-amber-100 to-yellow-100 p-6 font-sans">
       <div className="bg-white shadow-2xl rounded-2xl w-full max-w-md p-8 transition-all hover:-translate-y-1">
         {/* Government Seal */}
         <div className="flex justify-center mb-4">
