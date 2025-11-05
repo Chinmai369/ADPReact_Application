@@ -286,6 +286,12 @@ export default function ENCPHDashboard({
   const confirmApprove = () => {
     if (!previewSubmission) return;
     
+    // Validate that Verification Note is filled
+    if (!approveRemarks || approveRemarks.trim() === "") {
+      alert("Please enter Verification Note before approving.");
+      return;
+    }
+    
     setForwardedSubmissions((prev) =>
       prev.map((f) =>
         f.id === previewSubmission.id
@@ -295,9 +301,9 @@ export default function ENCPHDashboard({
               forwardedTo: {
                 department: "Administration",
                 section: "CDMA",
-                remarks: approveRemarks || "Approved by ENCPH and forwarded to CDMA for final approval",
+                remarks: approveRemarks,
               },
-              remarks: approveRemarks || "",
+              remarks: approveRemarks,
             }
           : f
       )
@@ -716,13 +722,14 @@ export default function ENCPHDashboard({
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
+                  <label className="text-sm text-gray-600 font-medium">Verification Note <span className="text-red-500">*</span></label>
                   <textarea
                     className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     rows={6}
                     value={approveRemarks}
                     onChange={(e) => setApproveRemarks(e.target.value)}
-                    placeholder="Enter remarks for approval (optional)..."
+                    placeholder="Enter verification note (required)..."
+                    required
                   />
                 </div>
                 <div className="flex justify-end gap-3 mt-6">

@@ -319,10 +319,16 @@ export default function EEPHDashboard({
   const confirmApprove = () => {
     if (!previewSubmission) return;
     
+    // Validate that Verification Note is filled
+    if (!approveRemarks || approveRemarks.trim() === "") {
+      alert("Please enter Verification Note before approving.");
+      return;
+    }
+    
     setForwardedSubmissions((prev) => {
       const updated = prev.map((f) =>
         f.id === previewSubmission.id 
-          ? { ...f, status: "EEPH Approved", remarks: approveRemarks || "" } 
+          ? { ...f, status: "EEPH Approved", remarks: approveRemarks } 
           : f
       );
       const updatedSub = updated.find((f) => f.id === previewSubmission.id);
@@ -388,7 +394,6 @@ export default function EEPHDashboard({
               forwardedTo: {
                 department: dept,
                 section,
-                remarks: forwardRemarks,
               },
               status: "Forwarded to SEPH",
               // Explicitly preserve all file properties
@@ -847,13 +852,14 @@ export default function EEPHDashboard({
                 {!approvalConfirmed ? (
                   <>
                     <div>
-                      <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
+                      <label className="text-sm text-gray-600 font-medium">Verification Note <span className="text-red-500">*</span></label>
                       <textarea
                         className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         rows={6}
                         value={approveRemarks}
                         onChange={(e) => setApproveRemarks(e.target.value)}
-                        placeholder="Enter remarks for approval (optional)..."
+                        placeholder="Enter verification note (required)..."
+                        required
                       />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -911,16 +917,6 @@ export default function EEPHDashboard({
                               <option key={s} value={s}>{s}</option>
                             ))}
                         </select>
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
-                        <textarea
-                          className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          rows={4}
-                          value={forwardRemarks}
-                          onChange={(e) => setForwardRemarks(e.target.value)}
-                          placeholder="Enter remarks for forwarding (optional)..."
-                        />
                       </div>
                     </div>
                     {forwardSuccess && (
