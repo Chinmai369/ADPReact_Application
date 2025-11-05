@@ -311,10 +311,16 @@ export default function SEPHDashboard({
   const confirmApprove = () => {
     if (!previewSubmission) return;
     
+    // Validate that Verification Note is filled
+    if (!approveRemarks || approveRemarks.trim() === "") {
+      alert("Please enter Verification Note before approving.");
+      return;
+    }
+    
     setForwardedSubmissions((prev) => {
       const updated = prev.map((f) =>
         f.id === previewSubmission.id 
-          ? { ...f, status: "SEPH Approved", remarks: approveRemarks || "" } 
+          ? { ...f, status: "SEPH Approved", remarks: approveRemarks } 
           : f
       );
       // Find the updated submission to set as preview
@@ -381,7 +387,6 @@ export default function SEPHDashboard({
               forwardedTo: {
                 department: dept,
                 section,
-                remarks: forwardRemarks,
               },
               status: "Forwarded to ENCPH",
               // Explicitly preserve all file properties
@@ -443,9 +448,19 @@ export default function SEPHDashboard({
   const isActionDisabled = (status) =>
     ["SEPH Approved", "SEPH Rejected"].includes(status);
 
+  const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
+
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: "📊" },
+    { id: "reports", label: "Reports", icon: "📄" },
+    { id: "gos", label: "GO's", icon: "📋" },
+    { id: "circular", label: "Circular & Proceedings", icon: "📢" },
+    { id: "guidelines", label: "Guidelines", icon: "📐" },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="w-full p-6 pb-0">
         <Header
           title="15th Finance Commission"
           user={user}
@@ -457,8 +472,36 @@ export default function SEPHDashboard({
             }
           }}
         />
+      </div>
+      
+      <div className="flex items-start">
+        {/* Left Sidebar Menu */}
+        <div className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl min-h-[calc(100vh-80px)] border-r border-slate-700">
+          <div className="p-5 border-b border-slate-700">
+            <h3 className="text-base font-bold text-white uppercase tracking-wider">Menu</h3>
+          </div>
+          <nav className="p-3 space-y-2">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedMenuItem(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-all duration-200 ${
+                  selectedMenuItem === item.id
+                    ? "bg-emerald-600 text-white font-semibold shadow-lg transform scale-[1.02] border-l-4 border-emerald-300"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-white hover:shadow-md hover:translate-x-1"
+                }`}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-sm font-medium">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
 
-        <div className="bg-white p-6 rounded-xl shadow border mt-6">
+        {/* Main Content Area */}
+        <div className="flex-1 p-6 pt-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">SEPH Dashboard</h2>
 
           {/* Statistics Cards */}
@@ -793,13 +836,14 @@ export default function SEPHDashboard({
                 {!approvalConfirmed ? (
                   <>
                 <div>
-                      <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
+                      <label className="text-sm text-gray-600 font-medium">Verification Note <span className="text-red-500">*</span></label>
                       <textarea
                         className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         rows={6}
                         value={approveRemarks}
                         onChange={(e) => setApproveRemarks(e.target.value)}
-                        placeholder="Enter remarks for approval (optional)..."
+                        placeholder="Enter verification note (required)..."
+                        required
                       />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
@@ -857,16 +901,6 @@ export default function SEPHDashboard({
                               <option key={s} value={s}>{s}</option>
                       ))}
                   </select>
-                </div>
-                <div>
-                        <label className="text-sm text-gray-600 font-medium">Remarks (Optional)</label>
-                        <textarea
-                          className="w-full border p-3 rounded mt-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          rows={4}
-                    value={forwardRemarks}
-                    onChange={(e) => setForwardRemarks(e.target.value)}
-                          placeholder="Enter remarks for forwarding (optional)..."
-                  />
                 </div>
               </div>
                     {forwardSuccess && (
@@ -1234,6 +1268,8 @@ export default function SEPHDashboard({
               </div>
             </div>
           )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
