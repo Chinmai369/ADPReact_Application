@@ -82,7 +82,9 @@ export default function AdminDashboard({
   // form fields
   const [workType, setWorkType] = useState("");
   const [proposalName, setProposalName] = useState("");
-  const [location, setLocation] = useState("");
+  const [area, setArea] = useState("");
+  const [locality, setLocality] = useState("");
+  const [wardNo, setWardNo] = useState("");
   const [latlong, setLatlong] = useState("");
   const [estimatedCost, setEstimatedCost] = useState("");
   const [prioritization, setPrioritization] = useState("");
@@ -165,11 +167,16 @@ export default function AdminDashboard({
   // Card-based navigation state - default to "forwarded"
   const [selectedView, setSelectedView] = useState("forwarded");
 
+  // Image zoom modal state
+  const [zoomedImage, setZoomedImage] = useState(null);
+
   // Helper: reset the form (optionally keep numberOfWorks when activeCR present)
   function resetForm(keepNumberOfWorks = false) {
     setWorkType("");
     setProposalName("");
-    setLocation("");
+    setArea("");
+    setLocality("");
+    setWardNo("");
     setLatlong("");
     setEstimatedCost("");
     setPrioritization("");
@@ -189,7 +196,7 @@ export default function AdminDashboard({
       setFormError("Please choose Year, Installment, Grant Type and Program.");
       return;
     }
-    if (!workType || !proposalName || !location || !estimatedCost || !prioritization) {
+    if (!workType || !proposalName || !area || !locality || !wardNo || !estimatedCost || !prioritization) {
       setFormError("Please fill all required proposal fields.");
       return;
     }
@@ -205,7 +212,7 @@ export default function AdminDashboard({
       id: Date.now() + Math.random(),
       sector: workType,
       proposal: proposalName,
-      locality: location,
+      locality: locality,
       latlong,
       cost: Number(estimatedCost),
       priority: Number(prioritization),
@@ -213,6 +220,8 @@ export default function AdminDashboard({
       crDate: crStatus === "CR" ? crDate : "",
       workImage,
       detailedReport,
+      area: area,
+      wardNo: wardNo,
     };
 
     setSubmissions((s) => {
@@ -242,8 +251,29 @@ export default function AdminDashboard({
     if (!s) return;
     // restore fields
     setWorkType(s.sector);
-    setProposalName(s.proposal);
-    setLocation(s.locality);
+    setProposalName(s.proposal || "");
+    
+    // If submission has separate area and wardNo, use them
+    if (s.area && s.wardNo) {
+      setArea(s.area);
+      setLocality(s.locality || "");
+      setWardNo(s.wardNo);
+    } else {
+      // Try to parse from proposal field (backward compatibility)
+      // Format: "area - locality - Ward No: wardNo"
+      const proposalMatch = (s.proposal || "").match(/^(.+?)\s*-\s*(.+?)\s*-\s*Ward No:\s*(.+)$/);
+      if (proposalMatch) {
+        setArea(proposalMatch[1].trim());
+        setLocality(proposalMatch[2].trim());
+        setWardNo(proposalMatch[3].trim());
+      } else {
+        // Fallback: use proposal as proposalName, locality as is, area and wardNo empty
+        setArea("");
+        setLocality(s.locality || "");
+        setWardNo("");
+      }
+    }
+    
     setLatlong(s.latlong || "");
     setEstimatedCost(String(s.cost));
     setPrioritization(String(s.priority));
@@ -323,6 +353,59 @@ export default function AdminDashboard({
     }
   };
 
+  // Helper function to format locality display (Area, Locality, Ward No)
+  const formatLocality = (item) => {
+    const parts = [];
+    if (item.area) parts.push(item.area);
+    if (item.locality) parts.push(item.locality);
+    if (item.wardNo) parts.push(`Ward No: ${item.wardNo}`);
+    return parts.length > 0 ? parts.join(", ") : (item.locality || "-");
+  };
+
+  // Helper function to check if latlong is a URL
+  const isUrl = (str) => {
+    if (!str) return false;
+    return str.startsWith('http://') || str.startsWith('https://') || str.startsWith('www.') || str.includes('maps.google') || str.includes('goo.gl/maps') || str.includes('maps.app.goo.gl');
+  };
+
+  // Helper function to convert coordinates to Google Maps URL
+  const convertCoordinatesToGoogleMapsUrl = (latlong) => {
+    if (!latlong) return null;
+    // Try to match coordinates (e.g., "17.3850, 78.4867" or "17.3850,78.4867")
+    const coordMatch = latlong.trim().match(/^([-+]?[0-9]*\.?[0-9]+)\s*,\s*([-+]?[0-9]*\.?[0-9]+)$/);
+    if (coordMatch) {
+      const lat = coordMatch[1].trim();
+      const lng = coordMatch[2].trim();
+      return `https://www.google.com/maps?q=${lat},${lng}`;
+    }
+    return null;
+  };
+
+  // Helper function to format latlong URL for Google Maps
+  const formatLatlongUrl = (latlong) => {
+    if (!latlong) return null;
+    
+    // Check if it's already a URL
+    if (isUrl(latlong)) {
+      const url = latlong.startsWith('http') ? latlong : `https://${latlong}`;
+      // Ensure it's a Google Maps URL - if it's a Google Maps URL, return as is
+      if (url.includes('maps.google') || url.includes('goo.gl/maps') || url.includes('maps.app.goo.gl')) {
+        return url;
+      }
+      // If it's another URL, return as is (might be a different mapping service)
+      return url;
+    }
+    
+    // Try to convert coordinates to Google Maps URL
+    const googleMapsUrl = convertCoordinatesToGoogleMapsUrl(latlong);
+    if (googleMapsUrl) {
+      return googleMapsUrl;
+    }
+    
+    // If it's not a URL or coordinates, return null (will be displayed as text)
+    return null;
+  };
+
   // Helper function to convert File to Base64 data URL
   const fileToBase64 = (file) => {
     return new Promise((resolve) => {
@@ -376,7 +459,7 @@ export default function AdminDashboard({
         id: Date.now() + Math.random(),
         sector: workType,
         proposal: proposalName,
-        locality: location,
+        locality: locality,
         latlong,
         cost: Number(estimatedCost),
         priority: Number(prioritization),
@@ -384,6 +467,8 @@ export default function AdminDashboard({
         crDate: crStatus === "CR" ? crDate : "",
         workImage,
         detailedReport,
+        area: area,
+        wardNo: wardNo,
       };
       submissionsToForward.push(editedSub);
     }
@@ -417,7 +502,9 @@ export default function AdminDashboard({
     setSelection({ year: "", installment: "", grantType: "", program: "" });
     setWorkType("");
     setProposalName("");
-    setLocation("");
+    setArea("");
+    setLocality("");
+    setWardNo("");
     setLatlong("");
     setEstimatedCost("");
     setPrioritization("");
@@ -451,6 +538,29 @@ export default function AdminDashboard({
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* Image Zoom Modal */}
+      {zoomedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div className="relative max-w-7xl max-h-full">
+            <img 
+              src={zoomedImage} 
+              alt="Zoomed" 
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-4 right-4 bg-white rounded-full p-2 hover:bg-gray-200 text-gray-800 font-bold text-xl w-10 h-10 flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         
        {/* <img src="/ap-logo.jpeg" alt="AP Logo" className="h-12 w-auto" /> */}
@@ -713,19 +823,85 @@ export default function AdminDashboard({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-600">Name of the Proposals</label>
-                  <input value={proposalName} onChange={(e) => setProposalName(e.target.value)} className="mt-1 w-full border p-2 rounded" />
-                </div>
-
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-600">Locality</label>
-                  <textarea value={location} onChange={(e) => setLocation(e.target.value)}  rows={1} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-sm text-gray-600 mb-2">Name of the work</label>
+                  <input
+                    value={proposalName}
+                    onChange={(e) => setProposalName(e.target.value)}
+                    className="w-full border p-2 rounded mb-3"
+                    placeholder="Enter name of the work"
+                  />
+                  <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
+                        <input 
+                          value={area} 
+                          onChange={(e) => setArea(e.target.value)} 
+                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          placeholder="Enter area"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
+                        <input 
+                          value={locality} 
+                          onChange={(e) => setLocality(e.target.value)} 
+                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          placeholder="Enter locality"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
+                        <input 
+                          value={wardNo} 
+                          onChange={(e) => setWardNo(e.target.value)} 
+                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          placeholder="Enter ward number"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL</label>
-                  <textarea value={latlong} onChange={(e) => setLatlong(e.target.value)} className="mt-1 w-full border p-2 rounded" />
+                  <div className="mt-1 relative">
+                    {latlong && formatLatlongUrl(latlong) ? (
+                      <div 
+                        className="w-full border p-2 rounded bg-white min-h-[3rem] flex items-center cursor-pointer hover:bg-blue-50"
+                        onClick={() => window.open(formatLatlongUrl(latlong), '_blank', 'noopener,noreferrer')}
+                      >
+                        <a 
+                          href={formatLatlongUrl(latlong)}
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline flex-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {latlong}
+                        </a>
+                        <span className="text-xs text-gray-500 ml-2">(Click to open in Google Maps)</span>
+                      </div>
+                    ) : (
+                      <textarea 
+                        value={latlong} 
+                        onChange={(e) => setLatlong(e.target.value)} 
+                        className="w-full border p-2 rounded" 
+                        placeholder="Enter coordinates (e.g., 17.3850, 78.4867) or Google Maps URL (e.g., https://maps.google.com/...)"
+                        rows={2}
+                      />
+                    )}
+                    {latlong && formatLatlongUrl(latlong) && (
+                      <button
+                        onClick={() => setLatlong("")}
+                        className="absolute top-2 right-2 text-xs text-gray-500 hover:text-gray-700"
+                        title="Clear and edit"
+                      >
+                        ✕ Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -844,12 +1020,14 @@ export default function AdminDashboard({
                       <th className="p-2 whitespace-nowrap text-center">Priority</th>
                       <th className="p-2 whitespace-nowrap">Work Image</th>
                       <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap">Committee Report</th>
+                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
                       <th className="p-2 whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {groupedKeys.length === 0 ? (
-                      <tr><td className="p-4 text-sm text-gray-500" colSpan={12}>No submissions yet.</td></tr>
+                      <tr><td className="p-4 text-sm text-gray-500" colSpan={14}>No submissions yet.</td></tr>
                     ) : (
                       groupedKeys.map((sector, groupIdx) => {
                         const group = groupedSubmissions[sector];
@@ -874,22 +1052,45 @@ export default function AdminDashboard({
                                 {item.proposal}
                               </td>
                               <td className="p-2 align-top text-right">{fmtINR(Math.round(item.cost))}</td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.locality}>
-                                {item.locality}
+                              <td className="p-2 align-top max-w-xs truncate" title={formatLocality(item)}>
+                                {formatLocality(item)}
                               </td>
                               <td className="p-2 align-top max-w-xs truncate" title={item.latlong || "-"}>
-                                {item.latlong ? (item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong) : "-"}
+                                {item.latlong ? (
+                                  formatLatlongUrl(item.latlong) ? (
+                                    <a href={formatLatlongUrl(item.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                                      {item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong}
+                                    </a>
+                                  ) : (
+                                    item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong
+                                  )
+                                ) : "-"}
                               </td>
                               <td className="p-2 align-top text-center">{item.priority}</td>
                               <td className="p-2 align-top">
                                 {item.workImage ? (
-                                  <a href={getFileUrl(item.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                  <img 
+                                    src={getFileUrl(item.workImage)} 
+                                    alt="Work" 
+                                    className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-300"
+                                    onClick={() => setZoomedImage(getFileUrl(item.workImage))}
+                                  />
                                 ) : (<span className="text-gray-400 text-xs">No image</span>)}
                               </td>
                               <td className="p-2 align-top">
                                 {item.detailedReport ? (
                                   <a href={getFileUrl(item.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
                                 ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                              </td>
+                              <td className="p-2 align-top">
+                                {item.committeeReport ? (
+                                  <a href={getFileUrl(item.committeeReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                ) : (<span className="text-gray-400 text-xs">-</span>)}
+                              </td>
+                              <td className="p-2 align-top">
+                                {item.councilResolution ? (
+                                  <a href={getFileUrl(item.councilResolution)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                ) : (<span className="text-gray-400 text-xs">-</span>)}
                               </td>
                               <td className="p-2 align-top">
                                 <div className="flex gap-1">
@@ -941,6 +1142,8 @@ export default function AdminDashboard({
                         <th className="p-2 whitespace-nowrap">Priority</th>
                         <th className="p-2 whitespace-nowrap">Work Image</th>
                         <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                        <th className="p-2 whitespace-nowrap">Committee Report</th>
+                        <th className="p-2 whitespace-nowrap">Council Resolution</th>
                         <th className="p-2 whitespace-nowrap">Status</th>
                         <th className="p-2 whitespace-nowrap">Remarks</th>
                   </tr>
@@ -954,20 +1157,43 @@ export default function AdminDashboard({
                         <td className="p-2">{s.sector}</td>
                           <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
                         <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                          <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
                           <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
-                            {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                            {s.latlong ? (
+                              formatLatlongUrl(s.latlong) ? (
+                                <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                                  {s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong}
+                                </a>
+                              ) : (
+                                s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong
+                              )
+                            ) : "-"}
                           </td>
                           <td className="p-2 text-center">{s.priority}</td>
                           <td className="p-2">
                             {s.workImage ? (
-                              <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                              <img 
+                                src={getFileUrl(s.workImage)} 
+                                alt="Work" 
+                                className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-300"
+                                onClick={() => setZoomedImage(getFileUrl(s.workImage))}
+                              />
                             ) : (<span className="text-gray-400 text-xs">No image</span>)}
                           </td>
                           <td className="p-2">
                             {s.detailedReport ? (
                               <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
                             ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                          </td>
+                          <td className="p-2">
+                            {s.committeeReport ? (
+                              <a href={getFileUrl(s.committeeReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                            ) : (<span className="text-gray-400 text-xs">-</span>)}
+                          </td>
+                          <td className="p-2">
+                            {s.councilResolution ? (
+                              <a href={getFileUrl(s.councilResolution)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                            ) : (<span className="text-gray-400 text-xs">-</span>)}
                           </td>
                           <td className="p-2 text-green-600">CDMA Approved</td>
                           <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
@@ -1007,6 +1233,8 @@ export default function AdminDashboard({
                       <th className="p-2 whitespace-nowrap">Priority</th>
                       <th className="p-2 whitespace-nowrap">Work Image</th>
                       <th className="p-2 whitespace-nowrap">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap">Committee Report</th>
+                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
                       <th className="p-2 whitespace-nowrap">Status</th>
                       {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap">Forwarded Date</th>}
                       {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap">Remarks</th>}
@@ -1046,20 +1274,43 @@ export default function AdminDashboard({
                                 <td className="p-2 align-top">{isFirstInGroup ? s.sector : ""}</td>
                                 <td className="p-2 max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
                                 <td className="p-2 text-right align-top">{fmtINR(Math.round(s.cost || 0))}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 max-w-xs truncate align-top" title={formatLocality(s)}>{formatLocality(s)}</td>
                                 <td className="p-2 max-w-xs truncate align-top" title={s.latlong || "-"}>
-                                  {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                                  {s.latlong ? (
+                                    formatLatlongUrl(s.latlong) ? (
+                                      <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                                        {s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong}
+                                      </a>
+                                    ) : (
+                                      s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong
+                                    )
+                                  ) : "-"}
                                 </td>
                                 <td className="p-2 text-center align-top">{s.priority}</td>
                                 <td className="p-2 align-top">
                                   {s.workImage ? (
-                                    <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                    <img 
+                                      src={getFileUrl(s.workImage)} 
+                                      alt="Work" 
+                                      className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-300"
+                                      onClick={() => setZoomedImage(getFileUrl(s.workImage))}
+                                    />
                                   ) : (<span className="text-gray-400 text-xs">No image</span>)}
                                 </td>
                                 <td className="p-2 align-top">
                                   {s.detailedReport ? (
                                     <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
                                   ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                                </td>
+                                <td className="p-2 align-top">
+                                  {s.committeeReport ? (
+                                    <a href={getFileUrl(s.committeeReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                  ) : (<span className="text-gray-400 text-xs">-</span>)}
+                                </td>
+                                <td className="p-2 align-top">
+                                  {s.councilResolution ? (
+                                    <a href={getFileUrl(s.councilResolution)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                  ) : (<span className="text-gray-400 text-xs">-</span>)}
                                 </td>
                                 <td className="p-2 align-top">
                                   {s.status === "Pending Review" ? (
@@ -1088,20 +1339,43 @@ export default function AdminDashboard({
                             <td className="p-2">{s.sector}</td>
                             <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
                             <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.locality}>{s.locality}</td>
+                            <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
                             <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
-                              {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
+                              {s.latlong ? (
+                                formatLatlongUrl(s.latlong) ? (
+                                  <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                                    {s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong}
+                                  </a>
+                                ) : (
+                                  s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong
+                                )
+                              ) : "-"}
                             </td>
                             <td className="p-2 text-center">{s.priority}</td>
                             <td className="p-2">
                               {s.workImage ? (
-                                <a href={getFileUrl(s.workImage)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                                <img 
+                                  src={getFileUrl(s.workImage)} 
+                                  alt="Work" 
+                                  className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-300"
+                                  onClick={() => setZoomedImage(getFileUrl(s.workImage))}
+                                />
                               ) : (<span className="text-gray-400 text-xs">No image</span>)}
                             </td>
                             <td className="p-2">
                               {s.detailedReport ? (
                                 <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
                               ) : (<span className="text-gray-400 text-xs">No report</span>)}
+                            </td>
+                            <td className="p-2">
+                              {s.committeeReport ? (
+                                <a href={getFileUrl(s.committeeReport)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                              ) : (<span className="text-gray-400 text-xs">-</span>)}
+                            </td>
+                            <td className="p-2">
+                              {s.councilResolution ? (
+                                <a href={getFileUrl(s.councilResolution)} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">View</a>
+                              ) : (<span className="text-gray-400 text-xs">-</span>)}
                             </td>
                             <td className="p-2">
                               {s.status === "Pending Review" ? (
