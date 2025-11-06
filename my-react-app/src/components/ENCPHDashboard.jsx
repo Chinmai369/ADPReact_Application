@@ -491,7 +491,7 @@ export default function ENCPHDashboard({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-6 pb-0">
         <Header
@@ -507,7 +507,7 @@ export default function ENCPHDashboard({
         />
       </div>
       
-      <div className="flex items-start relative pt-20">
+      <div className="flex items-start relative pt-20 overflow-x-hidden">
         {/* Menu Toggle Button - Only visible when menu is closed */}
         {!isMenuOpen && (
           <button
@@ -557,7 +557,7 @@ export default function ENCPHDashboard({
         </div>
 
         {/* Main Content Area */}
-        <div className={`flex-1 p-6 pt-4 transition-all duration-300 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
+        <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="max-w-6xl mx-auto">
             <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">ENCPH Dashboard</h2>

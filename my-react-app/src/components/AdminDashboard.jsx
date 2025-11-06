@@ -649,7 +649,7 @@ export default function AdminDashboard({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Image Zoom Modal */}
       {zoomedImage && (
         <div 
@@ -688,7 +688,7 @@ export default function AdminDashboard({
         />
       </div>
       
-      <div className="flex items-start relative pt-20">
+      <div className="flex items-start relative pt-20 overflow-x-hidden">
         {/* Menu Toggle Button - Only visible when menu is closed */}
         {!isMenuOpen && (
           <button
@@ -738,7 +738,7 @@ export default function AdminDashboard({
         </div>
 
         {/* Main Content Area */}
-        <div className={`flex-1 p-6 pt-4 transition-all duration-300 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
+        <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="max-w-6xl mx-auto">
             {/* Forwarding Success Banner */}
             {successMsg && (
