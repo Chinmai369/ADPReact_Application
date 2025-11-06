@@ -29,6 +29,99 @@ export default function CDMADashboard({
     return null;
   };
 
+  // Helper function to get file info (name, size, type)
+  const getFileInfo = (file, defaultName = "document") => {
+    if (!file) return null;
+    
+    let fileName = defaultName;
+    let fileSize = null;
+    let fileType = "PDF";
+    
+    if (file instanceof File) {
+      fileName = file.name || defaultName;
+      fileSize = file.size;
+      const ext = fileName.split('.').pop()?.toUpperCase() || 'PDF';
+      fileType = ext === 'PDF' ? 'PDF' : ext;
+    } else if (typeof file === 'string') {
+      if (file.startsWith('data:')) {
+        const matches = file.match(/data:([^;]+);/);
+        if (matches) {
+          const mimeType = matches[1];
+          if (mimeType.includes('pdf')) {
+            fileType = 'PDF';
+          } else if (mimeType.includes('image')) {
+            fileType = 'IMAGE';
+          } else {
+            fileType = 'FILE';
+          }
+        }
+        fileSize = Math.round((file.length * 3) / 4);
+      }
+      fileName = defaultName;
+    }
+    
+    return { fileName, fileSize, fileType };
+  };
+
+  // Helper function to format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // File Preview Component
+  const FilePreview = ({ file, defaultName = "document.pdf" }) => {
+    if (!file) {
+      return <span className="text-gray-400 text-xs">No file</span>;
+    }
+    
+    const fileInfo = getFileInfo(file, defaultName);
+    const fileUrl = getFileUrl(file);
+    
+    const handleClick = (e) => {
+      e.preventDefault();
+      if (fileUrl) {
+        window.open(fileUrl, '_blank');
+      }
+    };
+    
+    return (
+      <div 
+        onClick={handleClick}
+        className="bg-white rounded shadow-sm border border-gray-200 p-1 cursor-pointer hover:shadow-md transition-shadow max-w-[70px]"
+      >
+        <div className="w-full h-8 bg-gradient-to-br from-purple-100 to-pink-100 rounded mb-1 overflow-hidden relative">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-5 h-5 bg-white rounded shadow-sm opacity-50"></div>
+          </div>
+          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+            <div className="w-0.5 h-0.5 bg-gray-400 rounded-full"></div>
+            <div className="w-0.5 h-0.5 bg-gray-400 rounded-full"></div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-0.5">
+          <div className="bg-red-600 text-white text-[5px] font-bold px-0.5 py-0.5 rounded flex-shrink-0">
+            {fileInfo.fileType}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="text-[8px] font-medium text-gray-900 truncate" title={fileInfo.fileName}>
+              {fileInfo.fileName}
+            </div>
+            {fileInfo.fileSize && (
+              <div className="text-[7px] text-gray-500">
+                {formatFileSize(fileInfo.fileSize)}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // --- States ---
   const [pendingList, setPendingList] = useState([]);
   const [approvedList, setApprovedList] = useState([]);
@@ -441,6 +534,8 @@ export default function CDMADashboard({
                           <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
                           {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
                           {(selectedView === "rejected") && <th className="p-2 text-left text-xs">Remarks</th>}
@@ -492,8 +587,14 @@ export default function CDMADashboard({
                                     </td>
                                     <td className="p-2 text-xs align-top">
                                       {s.detailedReport ? (
-                                        <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                                      ) : (<span className="text-gray-400">No report</span>)}
+                                        <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
+                                      ) : null}
+                                    </td>
+                                    <td className="p-2 text-xs align-top">
+                                      <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                    </td>
+                                    <td className="p-2 text-xs align-top">
+                                      <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                     </td>
                                     <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                                   </tr>
@@ -740,6 +841,8 @@ export default function CDMADashboard({
                       <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                       <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                       <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
                       <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
                       <th className="p-2 text-left text-xs">Remarks</th>
                     </tr>
@@ -765,8 +868,14 @@ export default function CDMADashboard({
                         </td>
                         <td className="p-2 text-xs">
                           {s.detailedReport ? (
-                            <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
-                          ) : (<span className="text-gray-400">No report</span>)}
+                            <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
+                          ) : null}
+                        </td>
+                        <td className="p-2 text-xs align-top">
+                          <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                        </td>
+                        <td className="p-2 text-xs align-top">
+                          <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                         </td>
                         <td className="p-2 text-xs text-red-700">Rejected by CDMA</td>
                         <td className="p-2 text-xs text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>

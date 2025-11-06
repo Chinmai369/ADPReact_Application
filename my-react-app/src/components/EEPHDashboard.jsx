@@ -381,11 +381,11 @@ export default function EEPHDashboard({
               ...f, 
               ...editable, 
               remarks: editable.remarks,
-              // Preserve files if they exist in editable, otherwise keep original
-              workImage: editable.workImage || f.workImage,
-              detailedReport: editable.detailedReport || f.detailedReport,
-              committeeReport: editable.committeeReport || f.committeeReport,
-              councilResolution: editable.councilResolution || f.councilResolution,
+              // Preserve files - prioritize editable, then previewSubmission, then original
+              workImage: editable.workImage || previewSubmission.workImage || f.workImage,
+              detailedReport: editable.detailedReport || previewSubmission.detailedReport || f.detailedReport,
+              committeeReport: editable.committeeReport || previewSubmission.committeeReport || f.committeeReport,
+              councilResolution: editable.councilResolution || previewSubmission.councilResolution || f.councilResolution,
             }
           : f
       )
@@ -421,12 +421,28 @@ export default function EEPHDashboard({
     setForwardedSubmissions((prev) => {
       const updated = prev.map((f) =>
         f.id === previewSubmission.id 
-          ? { ...f, status: "EEPH Approved", remarks: approveRemarks } 
+          ? { 
+              ...f, 
+              status: "EEPH Approved", 
+              remarks: approveRemarks,
+              // Explicitly preserve all file properties
+              workImage: previewSubmission.workImage || f.workImage,
+              detailedReport: previewSubmission.detailedReport || f.detailedReport,
+              committeeReport: previewSubmission.committeeReport || f.committeeReport,
+              councilResolution: previewSubmission.councilResolution || f.councilResolution,
+            } 
           : f
       );
       const updatedSub = updated.find((f) => f.id === previewSubmission.id);
       if (updatedSub) {
-        setPreviewSubmission(updatedSub);
+        // Ensure files are preserved in previewSubmission
+        setPreviewSubmission({
+          ...updatedSub,
+          workImage: previewSubmission.workImage || updatedSub.workImage,
+          detailedReport: previewSubmission.detailedReport || updatedSub.detailedReport,
+          committeeReport: previewSubmission.committeeReport || updatedSub.committeeReport,
+          councilResolution: previewSubmission.councilResolution || updatedSub.councilResolution,
+        });
       }
       return updated;
     });
@@ -479,8 +495,11 @@ export default function EEPHDashboard({
     if (!dept || !section || !previewSubmission)
       return alert("Select department and section");
 
-    setForwardedSubmissions((prev) =>
-      prev.map((f) =>
+    setForwardedSubmissions((prev) => {
+      // Get current submission from array to preserve files
+      const currentSub = prev.find((f) => f.id === previewSubmission.id);
+      
+      return prev.map((f) =>
         f.id === previewSubmission.id
           ? {
               ...f,
@@ -489,15 +508,15 @@ export default function EEPHDashboard({
                 section,
               },
               status: "Forwarded to SEPH",
-              // Explicitly preserve all file properties
-              workImage: f.workImage || previewSubmission.workImage,
-              detailedReport: f.detailedReport || previewSubmission.detailedReport,
-              committeeReport: f.committeeReport || previewSubmission.committeeReport,
-              councilResolution: f.councilResolution || previewSubmission.councilResolution,
+              // Explicitly preserve all file properties - check multiple sources
+              workImage: previewSubmission.workImage || f.workImage || currentSub?.workImage || null,
+              detailedReport: previewSubmission.detailedReport || f.detailedReport || currentSub?.detailedReport || null,
+              committeeReport: previewSubmission.committeeReport || f.committeeReport || currentSub?.committeeReport || null,
+              councilResolution: previewSubmission.councilResolution || f.councilResolution || currentSub?.councilResolution || null,
             }
           : f
-      )
-    );
+      );
+    });
     // Close modal immediately
     setShowApprovePanel(false);
     setApprovalConfirmed(false);
@@ -548,6 +567,7 @@ export default function EEPHDashboard({
     ["EEPH Approved", "EEPH Rejected", "Forwarded to SEPH"].includes(status);
 
   const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -559,7 +579,8 @@ export default function EEPHDashboard({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full p-6 pb-0">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-6 pb-0">
         <Header
           title="15th Finance Commission"
           user={user}
@@ -573,11 +594,36 @@ export default function EEPHDashboard({
         />
       </div>
       
-      <div className="flex items-start">
-        {/* Left Sidebar Menu */}
-        <div className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl min-h-[calc(100vh-80px)] border-r border-slate-700">
-          <div className="p-5 border-b border-slate-700">
+      <div className="flex items-start relative pt-20">
+        {/* Menu Toggle Button - Only visible when menu is closed */}
+        {!isMenuOpen && (
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="fixed top-[88px] left-0 z-50 p-2 text-gray-700 hover:text-gray-900 transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
+
+        {/* Left Sidebar Menu - Fixed */}
+        <div className={`fixed top-20 left-0 w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl h-[calc(100vh-80px)] border-r border-slate-700 overflow-y-auto z-40 transition-transform duration-300 ${
+          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="p-5 border-b border-slate-700 sticky top-0 bg-slate-800 flex items-center justify-between">
             <h3 className="text-base font-bold text-white uppercase tracking-wider">Menu</h3>
+            {/* Menu Toggle Button - Inside menu when open */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="bg-slate-700 text-white p-1.5 rounded-md hover:bg-slate-600 transition-colors"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
           </div>
           <nav className="p-3 space-y-2">
             {menuItems.map((item) => (
@@ -598,7 +644,7 @@ export default function EEPHDashboard({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 p-6 pt-4">
+        <div className={`flex-1 p-6 pt-4 transition-all duration-300 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="max-w-6xl mx-auto">
             <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">EEPH Dashboard</h2>
@@ -745,6 +791,8 @@ export default function EEPHDashboard({
                           <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
                           {showActions && <th className="p-2 text-left whitespace-nowrap text-xs">Actions</th>}
                           {!showActions && (selectedView === "rejected" || selectedView === "sentBackRejected") && (
@@ -778,6 +826,12 @@ export default function EEPHDashboard({
                                 </td>
                                 <td className="p-2 text-xs align-top">
                                   <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
                                 <td className="p-2 text-xs align-top">
                                   {selectedView === "pending" ? (

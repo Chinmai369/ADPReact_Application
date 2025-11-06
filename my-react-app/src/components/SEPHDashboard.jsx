@@ -542,6 +542,7 @@ export default function SEPHDashboard({
     ["SEPH Approved", "SEPH Rejected"].includes(status);
 
   const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -553,7 +554,8 @@ export default function SEPHDashboard({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full p-6 pb-0">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-6 pb-0">
         <Header
           title="15th Finance Commission"
           user={user}
@@ -567,11 +569,36 @@ export default function SEPHDashboard({
         />
       </div>
       
-      <div className="flex items-start">
-        {/* Left Sidebar Menu */}
-        <div className="w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl min-h-[calc(100vh-80px)] border-r border-slate-700">
-          <div className="p-5 border-b border-slate-700">
+      <div className="flex items-start relative pt-20">
+        {/* Menu Toggle Button - Only visible when menu is closed */}
+        {!isMenuOpen && (
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="fixed top-[88px] left-0 z-50 p-2 text-gray-700 hover:text-gray-900 transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
+
+        {/* Left Sidebar Menu - Fixed */}
+        <div className={`fixed top-20 left-0 w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl h-[calc(100vh-80px)] border-r border-slate-700 overflow-y-auto z-40 transition-transform duration-300 ${
+          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="p-5 border-b border-slate-700 sticky top-0 bg-slate-800 flex items-center justify-between">
             <h3 className="text-base font-bold text-white uppercase tracking-wider">Menu</h3>
+            {/* Menu Toggle Button - Inside menu when open */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="bg-slate-700 text-white p-1.5 rounded-md hover:bg-slate-600 transition-colors"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
           </div>
           <nav className="p-3 space-y-2">
             {menuItems.map((item) => (
@@ -592,7 +619,7 @@ export default function SEPHDashboard({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 p-6 pt-4">
+        <div className={`flex-1 p-6 pt-4 transition-all duration-300 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="max-w-6xl mx-auto">
             <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">SEPH Dashboard</h2>
@@ -731,6 +758,8 @@ export default function SEPHDashboard({
                           <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
                           {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
                           {(selectedView === "rejected" || selectedView === "sentBackRejected") && <th className="p-2 text-left text-xs">Remarks</th>}
@@ -783,6 +812,12 @@ export default function SEPHDashboard({
                                     <td className="p-2 text-xs align-top">
                                       <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                     </td>
+                                    <td className="p-2 text-xs align-top">
+                                      <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                    </td>
+                                    <td className="p-2 text-xs align-top">
+                                      <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
+                                    </td>
                                     <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                                   </tr>
                                 );
@@ -813,6 +848,12 @@ export default function SEPHDashboard({
                                     <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : null}
                                 </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
+                                </td>
                                 <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                               </tr>
                             ));
@@ -837,9 +878,13 @@ export default function SEPHDashboard({
                                   ) : (<span className="text-gray-400">No image</span>)}
                                 </td>
                                 <td className="p-2 text-xs align-top">
-                                  {s.detailedReport ? (
-                                    <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
-                                  ) : null}
+                                  <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
                                 <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                                 {selectedView === "pending" && (
@@ -1110,6 +1155,8 @@ export default function SEPHDashboard({
                       <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                       <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                       <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
                       <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
                     </tr>
                   </thead>
@@ -1136,6 +1183,12 @@ export default function SEPHDashboard({
                           {s.detailedReport ? (
                             <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                           ) : null}
+                        </td>
+                        <td className="p-2 text-xs align-top">
+                          <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                        </td>
+                        <td className="p-2 text-xs align-top">
+                          <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                         </td>
                         <td className="p-2 text-xs text-green-700">SEPH Approved</td>
                       </tr>
