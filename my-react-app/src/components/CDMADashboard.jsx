@@ -141,14 +141,51 @@ export default function CDMADashboard({
   const [approveRemarks, setApproveRemarks] = useState("");
   const [selectedView, setSelectedView] = useState("pending"); // For card-based navigation
 
+  // Menu state
+  const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
+  const [isMenuOpen, setIsMenuOpen] = useState(true);
+
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: "📊" },
+    { id: "reports", label: "Reports", icon: "📄" },
+    { id: "gos", label: "GO's", icon: "📋" },
+    { id: "circular", label: "Circular & Proceedings", icon: "📢" },
+    { id: "guidelines", label: "Guidelines", icon: "📐" },
+  ];
+
   // Filter state
   const [filters, setFilters] = useState({
     crNumber: "",
+    crDate: "",
     sector: "",
     status: "",
     proposal: "",
+    cost: "",
     locality: "",
+    latLong: "",
+    priority: "",
   });
+
+  // State to track which filter inputs are visible
+  const [activeFilters, setActiveFilters] = useState({
+    crNumber: false,
+    crDate: false,
+    sector: false,
+    status: false,
+    proposal: false,
+    cost: false,
+    locality: false,
+    latLong: false,
+    priority: false,
+  });
+
+  // Toggle filter input visibility
+  const toggleFilter = (columnName) => {
+    setActiveFilters(prev => ({
+      ...prev,
+      [columnName]: !prev[columnName]
+    }));
+  };
 
   const urlCache = useRef([]);
 
@@ -251,12 +288,45 @@ export default function CDMADashboard({
   // Filter function to apply filters to list
   const applyFilters = (list) => {
     return list.filter((item) => {
+      // CR Number filter
+      if (filters.crNumber && !(item.crNumber || "").toLowerCase().includes(filters.crNumber.toLowerCase())) {
+        return false;
+      }
+      // CR Date filter
+      if (filters.crDate && !(item.crDate || "").toLowerCase().includes(filters.crDate.toLowerCase())) {
+        return false;
+      }
       // Sector filter
       if (filters.sector && item.sector !== filters.sector) {
         return false;
       }
       // Status filter
       if (filters.status && item.status !== filters.status) {
+        return false;
+      }
+      // Proposal filter
+      if (filters.proposal && !(item.proposal || "").toLowerCase().includes(filters.proposal.toLowerCase())) {
+        return false;
+      }
+      // Cost filter
+      if (filters.cost) {
+        const costStr = fmtINR(item.cost || 0).toLowerCase();
+        if (!costStr.includes(filters.cost.toLowerCase())) {
+          return false;
+        }
+      }
+      // Locality filter
+      const localityStr = formatLocality(item).toLowerCase();
+      if (filters.locality && !localityStr.includes(filters.locality.toLowerCase())) {
+        return false;
+      }
+      // Lat/Long filter
+      const latLongStr = (item.latlong || "").toLowerCase();
+      if (filters.latLong && !latLongStr.includes(filters.latLong.toLowerCase())) {
+        return false;
+      }
+      // Priority filter
+      if (filters.priority && !(item.priority || "").toString().includes(filters.priority)) {
         return false;
       }
       return true;
@@ -454,8 +524,9 @@ export default function CDMADashboard({
     ["CDMA Approved", "CDMA Rejected"].includes(status);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-[95%] mx-auto">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-6 pb-0">
         <Header
           title="15th Finance Commission"
           user={user}
@@ -467,8 +538,62 @@ export default function CDMADashboard({
             }
           }}
         />
+      </div>
+      
+      <div className="flex items-start relative pt-20 overflow-x-hidden">
+        {/* Menu Toggle Button - Only visible when menu is closed */}
+        {!isMenuOpen && (
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="fixed top-[88px] left-0 z-50 p-2 text-gray-700 hover:text-gray-900 transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
 
-        <div className="bg-white p-6 rounded-xl shadow border mt-6">
+        {/* Left Sidebar Menu - Fixed */}
+        <div className={`fixed top-20 left-0 w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl h-[calc(100vh-80px)] border-r border-slate-700 overflow-y-auto z-40 transition-transform duration-300 ${
+          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="p-5 border-b border-slate-700 sticky top-0 bg-slate-800 flex items-center justify-between">
+            <h3 className="text-base font-bold text-white uppercase tracking-wider">Menu</h3>
+            {/* Menu Toggle Button - Inside menu when open */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="bg-slate-700 text-white p-1.5 rounded-md hover:bg-slate-600 transition-colors"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+          <nav className="p-3 space-y-2">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSelectedMenuItem(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-all duration-200 ${
+                  selectedMenuItem === item.id
+                    ? "bg-emerald-600 text-white font-semibold shadow-lg transform scale-[1.02] border-l-4 border-emerald-300"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-white hover:shadow-md hover:translate-x-1"
+                }`}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-sm font-medium">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Main Content Area */}
+        <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
+          <div className="max-w-[95%] mx-auto">
+            <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">CDMA Dashboard</h2>
 
           {/* Statistics Cards */}
@@ -575,87 +700,258 @@ export default function CDMADashboard({
               <>
                 <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
                 
-                {filteredList.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No items to display.</p>
-                ) : (
-                  <div className="overflow-auto max-h-80">
-                    <table className="min-w-full text-sm border-collapse">
-                      <thead className="bg-gray-100 border-b">
-                        <tr>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">
-                            <div className="flex items-center gap-1">
-                              <span>CR Number</span>
-                              <span className="text-xs">🔍</span>
-                            </div>
-                          </th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">
-                            <div className="flex items-center gap-1">
-                              <span>Sector</span>
+                <div className="overflow-auto max-h-80">
+                  <table className="min-w-full text-sm border-collapse">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>CR Number</span>
+                            <button
+                              onClick={() => toggleFilter('crNumber')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by CR Number"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.crNumber && (
+                              <input
+                                type="text"
+                                value={filters.crNumber}
+                                onChange={(e) => setFilters({ ...filters, crNumber: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>CR Date</span>
+                            <button
+                              onClick={() => toggleFilter('crDate')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by CR Date"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.crDate && (
+                              <input
+                                type="text"
+                                value={filters.crDate}
+                                onChange={(e) => setFilters({ ...filters, crDate: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Sector</span>
+                            <button
+                              onClick={() => toggleFilter('sector')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Sector"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.sector && (
                               <select
                                 value={filters.sector}
                                 onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
-                                className="w-20 border p-0.5 rounded text-xs"
-                                title="Filter by Sector"
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-24 border p-0.5 rounded text-xs ml-1"
+                                autoFocus
                               >
                                 <option value="">All</option>
                                 {uniqueSectors.map(sector => (
                                   <option key={sector} value={sector}>{sector}</option>
                                 ))}
                               </select>
-                            </div>
-                          </th>
-                          <th className="p-2 text-left text-xs">
-                            <div className="flex items-center gap-1">
-                              <span>Proposal</span>
-                              <span className="text-xs">🔍</span>
-                            </div>
-                          </th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">
-                            <div className="flex items-center gap-1">
-                              <span>Locality</span>
-                              <span className="text-xs">🔍</span>
-                            </div>
-                          </th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">
-                            <div className="flex items-center gap-1">
-                              <span>Status</span>
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Proposal</span>
+                            <button
+                              onClick={() => toggleFilter('proposal')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Proposal"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.proposal && (
+                              <input
+                                type="text"
+                                value={filters.proposal}
+                                onChange={(e) => setFilters({ ...filters, proposal: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Cost</span>
+                            <button
+                              onClick={() => toggleFilter('cost')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Cost"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.cost && (
+                              <input
+                                type="text"
+                                value={filters.cost}
+                                onChange={(e) => setFilters({ ...filters, cost: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Locality</span>
+                            <button
+                              onClick={() => toggleFilter('locality')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Locality"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.locality && (
+                              <input
+                                type="text"
+                                value={filters.locality}
+                                onChange={(e) => setFilters({ ...filters, locality: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Lat/Long</span>
+                            <button
+                              onClick={() => toggleFilter('latLong')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Lat/Long"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.latLong && (
+                              <input
+                                type="text"
+                                value={filters.latLong}
+                                onChange={(e) => setFilters({ ...filters, latLong: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Priority</span>
+                            <button
+                              onClick={() => toggleFilter('priority')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Priority"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.priority && (
+                              <input
+                                type="text"
+                                value={filters.priority}
+                                onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                placeholder="Search..."
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs">
+                          <div className="flex items-center gap-1">
+                            <span>Status</span>
+                            <button
+                              onClick={() => toggleFilter('status')}
+                              className="text-xs hover:text-blue-600"
+                              title="Filter by Status"
+                            >
+                              🔍
+                            </button>
+                            {activeFilters.status && (
                               <select
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                className="w-20 border p-0.5 rounded text-xs"
-                                title="Filter by Status"
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-24 border p-0.5 rounded text-xs ml-1"
+                                autoFocus
                               >
                                 <option value="">All</option>
                                 {uniqueStatuses.map(status => (
                                   <option key={status} value={status}>{status}</option>
                                 ))}
                               </select>
-                              {(filters.sector || filters.status) && (
-                                <button
-                                  onClick={() => setFilters({ crNumber: "", sector: "", status: "", proposal: "", locality: "" })}
-                                  className="text-xs text-blue-600 hover:text-blue-800 px-1"
-                                  title="Clear Filters"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
-                          </th>
+                            )}
+                            {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
+                              <button
+                                onClick={() => {
+                                  setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
+                                  setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 px-1 ml-1"
+                                title="Clear Filters"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </th>
                           {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
                           {(selectedView === "rejected") && <th className="p-2 text-left text-xs">Remarks</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {(() => {
+                          // Show "No results found" message if filteredList is empty
+                          if (filteredList.length === 0) {
+                            const columnCount = selectedView === "pending" ? 16 : selectedView === "rejected" ? 16 : 15;
+                            return (
+                              <tr>
+                                <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                                  No results found. Please try different search criteria.
+                                </td>
+                              </tr>
+                            );
+                          }
+
                           if (selectedView === "noOfCrs") {
                             // Group by CR number for CR view
                             const groupedByCR = {};
@@ -673,6 +969,18 @@ export default function CDMADashboard({
                               const crKey = (firstItem.crNumber || "").trim().toUpperCase() || "__NO_CR__";
                               return crKey !== "__NO_CR__";
                             });
+                            
+                            // If no groups found, show message
+                            if (crGroups.length === 0) {
+                              const columnCount = selectedView === "pending" ? 16 : selectedView === "rejected" ? 16 : 15;
+                              return (
+                                <tr>
+                                  <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                                    No results found. Please try different search criteria.
+                                  </td>
+                                </tr>
+                              );
+                            }
                             
                             let globalSerial = 0;
                             
@@ -812,7 +1120,6 @@ export default function CDMADashboard({
                       </tbody>
                     </table>
                   </div>
-                )}
               </>
             );
           })()}
@@ -1211,6 +1518,8 @@ export default function CDMADashboard({
               </div>
             </div>
           )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
