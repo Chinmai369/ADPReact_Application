@@ -156,6 +156,18 @@ export default function CommissionerDashboard({
   // View state for card-based navigation
   const [selectedView, setSelectedView] = useState("pending");
 
+  // Menu state
+  const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
+  const [isMenuOpen, setIsMenuOpen] = useState(true);
+
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: "📊" },
+    { id: "reports", label: "Reports", icon: "📄" },
+    { id: "gos", label: "GO's", icon: "📋" },
+    { id: "circular", label: "Circular & Proceedings", icon: "📢" },
+    { id: "guidelines", label: "Guidelines", icon: "📐" },
+  ];
+
   // Filter state
   const [filters, setFilters] = useState({
     crNumber: "",
@@ -818,21 +830,75 @@ export default function CommissionerDashboard({
     status?.startsWith("Forwarded to");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-6 pb-0">
         <Header
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
             const confirmed = window.confirm("Are you sure you want to logout?");
             if (confirmed) {
-            logout?.();
-            window.location.href = "/";
+              logout?.();
+              window.location.href = "/";
             }
           }}
         />
+      </div>
+      
+      <div className="flex items-start relative pt-20 overflow-x-hidden">
+        {/* Menu Toggle Button - Only visible when menu is closed */}
+        {!isMenuOpen && (
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="fixed top-[88px] left-0 z-50 p-2 text-gray-700 hover:text-gray-900 transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
 
-        <div className="bg-white p-6 rounded-xl shadow border mt-6">
+        {/* Left Sidebar Menu - Fixed */}
+        <div className={`fixed top-20 left-0 w-64 bg-gradient-to-b from-slate-800 to-slate-900 shadow-xl h-[calc(100vh-80px)] border-r border-slate-700 overflow-y-auto z-40 transition-transform duration-300 ${
+          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="p-5 border-b border-slate-700 sticky top-0 bg-slate-800 flex items-center justify-between">
+            <h3 className="text-base font-bold text-white uppercase tracking-wider">Menu</h3>
+            {/* Menu Toggle Button - Inside menu when open */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="bg-slate-700 text-white p-1.5 rounded-md hover:bg-slate-600 transition-colors"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+          <nav className="p-3 space-y-2">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedMenuItem(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-all duration-200 ${
+                  selectedMenuItem === item.id
+                    ? "bg-emerald-600 text-white font-semibold shadow-lg transform scale-[1.02] border-l-4 border-emerald-300"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-white hover:shadow-md hover:translate-x-1"
+                }`}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-sm font-medium">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Main Content Area */}
+        <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
+          <div className="max-w-[95%] mx-auto">
+            <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">
             Commissioner Dashboard
           </h2>
@@ -1781,7 +1847,8 @@ export default function CommissionerDashboard({
             </div>
           )}
 
-        </div>
+            </div>
+          </div>
 
         {/* Modal */}
         {modalOpen && previewSubmission && (
@@ -2021,6 +2088,7 @@ export default function CommissionerDashboard({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

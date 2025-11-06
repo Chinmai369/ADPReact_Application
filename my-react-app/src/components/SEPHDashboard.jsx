@@ -655,7 +655,7 @@ export default function SEPHDashboard({
     ["SEPH Approved", "SEPH Rejected"].includes(status);
 
   const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(true);
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -733,7 +733,7 @@ export default function SEPHDashboard({
 
         {/* Main Content Area */}
         <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[95%] mx-auto">
             <div className="bg-white p-6 rounded-xl shadow border">
           <h2 className="font-semibold text-gray-700 mb-4">SEPH Dashboard</h2>
 

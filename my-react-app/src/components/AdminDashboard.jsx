@@ -737,7 +737,7 @@ export default function AdminDashboard({
   const submittedCount = submissions.length + (activeCR ? activeCR.submittedCount : 0);
 
   const [selectedMenuItem, setSelectedMenuItem] = useState("dashboard");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(true);
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -838,7 +838,7 @@ export default function AdminDashboard({
 
         {/* Main Content Area */}
         <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[95%] mx-auto">
             {/* Forwarding Success Banner */}
             {successMsg && (
               <div className="mb-4 p-4 bg-green-500 text-white rounded-lg shadow-lg text-center font-semibold text-base animate-pulse">
