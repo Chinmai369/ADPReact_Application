@@ -1044,8 +1044,14 @@ export default function CDMADashboard({
                                 </td>
                                 <td className="p-2 text-xs align-top">
                                   {s.detailedReport ? (
-                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                    <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
                                 <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                               </tr>
@@ -1072,8 +1078,14 @@ export default function CDMADashboard({
                                 </td>
                                 <td className="p-2 text-xs align-top">
                                   {s.detailedReport ? (
-                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                    <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
                                 <td className="p-2 text-xs align-top">{s.status || "Forwarded from ENCPH"}</td>
                                 {selectedView === "pending" && (

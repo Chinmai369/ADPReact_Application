@@ -586,6 +586,9 @@ export default function SEPHDashboard({
       return alert("Select department and section");
     
     setForwardedSubmissions((prev) => {
+      // Get current submission from array to preserve files
+      const currentSub = prev.find((f) => f.id === previewSubmission.id);
+      
       const updated = prev.map((f) =>
         f.id === previewSubmission.id
           ? {
@@ -595,14 +598,25 @@ export default function SEPHDashboard({
                 section,
               },
               status: "Forwarded to ENCPH",
-              // Explicitly preserve all file properties
-              workImage: f.workImage || previewSubmission.workImage,
-              detailedReport: f.detailedReport || previewSubmission.detailedReport,
-              committeeReport: f.committeeReport || previewSubmission.committeeReport,
-              councilResolution: f.councilResolution || previewSubmission.councilResolution,
+              // Explicitly preserve all file properties - check multiple sources
+              workImage: previewSubmission.workImage || f.workImage || currentSub?.workImage || null,
+              detailedReport: previewSubmission.detailedReport || f.detailedReport || currentSub?.detailedReport || null,
+              committeeReport: previewSubmission.committeeReport || f.committeeReport || currentSub?.committeeReport || null,
+              councilResolution: previewSubmission.councilResolution || f.councilResolution || currentSub?.councilResolution || null,
             }
           : f
       );
+      
+      // Debug: Log files after forwarding
+      const forwardedSub = updated.find((f) => f.id === previewSubmission.id);
+      console.log("✅ SEPH forwarded to ENCPH - Files check:", {
+        id: forwardedSub?.id,
+        hasCommitteeReport: !!forwardedSub?.committeeReport,
+        hasCouncilResolution: !!forwardedSub?.councilResolution,
+        committeeReportType: forwardedSub?.committeeReport ? (typeof forwardedSub.committeeReport) : 'null',
+        councilResolutionType: forwardedSub?.councilResolution ? (typeof forwardedSub.councilResolution) : 'null',
+      });
+      
       return updated;
     });
     // Close modal immediately

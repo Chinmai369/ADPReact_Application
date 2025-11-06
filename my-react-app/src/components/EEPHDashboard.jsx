@@ -229,21 +229,76 @@ export default function EEPHDashboard({
 
   // Calculate lists using useMemo
   const pendingList = useMemo(() => {
-    return forwardedSubmissions.filter(
+    // First, log all submissions to see what we're working with
+    console.log("🔍 EEPH - All submissions count:", forwardedSubmissions.length);
+    const eephRelated = forwardedSubmissions.filter(s => {
+      const status = (s.status || "").trim().toLowerCase();
+      const section = (s.forwardedTo?.section || "").trim().toLowerCase();
+      return status.includes("eeph") || section === "eeph";
+    });
+    console.log("🔍 EEPH - Submissions with EEPH in status or section:", eephRelated.length, eephRelated.map(s => ({
+      id: s.id,
+      status: s.status,
+      section: s.forwardedTo?.section,
+      forwardedTo: s.forwardedTo
+    })));
+    
+    const filtered = forwardedSubmissions.filter(
       (s) => {
         const status = (s.status || "").trim();
         const section = (s.forwardedTo?.section || "").trim();
-        const isProcessed = ["EEPH Approved", "EEPH Rejected", "SEPH Rejected"].includes(status) ||
-                           status.toLowerCase().includes("forwarded to seph");
-        if (isProcessed) return false;
         const statusLower = status.toLowerCase();
-        if (statusLower.includes("forwarded to eeph")) return true;
         const sectionLower = section.toLowerCase();
-        if (sectionLower === "eeph") return true;
-        if (statusLower.startsWith("forwarded to") && sectionLower === "eeph") return true;
+        
+        // First check if task is forwarded to EEPH
+        // Match if:
+        // 1. Status contains "forwarded to eeph" (case-insensitive)
+        // 2. Section is exactly "eeph" (case-insensitive) - this catches tasks forwarded to EEPH
+        // 3. Status starts with "forwarded to" AND section is "eeph"
+        const hasForwardedToEephInStatus = statusLower.includes("forwarded to eeph");
+        const hasSectionEeph = sectionLower === "eeph";
+        const hasForwardedToWithEephSection = statusLower.startsWith("forwarded to") && sectionLower === "eeph";
+        const isForwardedToEEPH = hasForwardedToEephInStatus || hasSectionEeph || hasForwardedToWithEephSection;
+        
+        // If it's forwarded to EEPH, it should be pending (unless already processed by EEPH)
+        if (isForwardedToEEPH) {
+          // Only exclude if already processed by EEPH itself
+          if (status === "EEPH Approved" || status === "EEPH Rejected") {
+            return false;
+          }
+          console.log("✅ EEPH Filter - MATCHED (forwarded to EEPH):", { 
+            id: s.id, 
+            status, 
+            section,
+            forwardedTo: s.forwardedTo
+          });
+          return true;
+        }
+        
+        // For other tasks, exclude if processed
+        const isProcessed = ["EEPH Approved", "EEPH Rejected", "SEPH Rejected"].includes(status) ||
+                           statusLower.includes("forwarded to seph");
+        if (isProcessed) {
+          return false;
+        }
+        
         return false;
       }
     );
+    
+    console.log("🔍 EEPH Pending List Result:", {
+      totalSubmissions: forwardedSubmissions.length,
+      pendingCount: filtered.length,
+      pendingIds: filtered.map(s => s.id),
+      pendingDetails: filtered.map(s => ({
+        id: s.id,
+        status: s.status,
+        section: s.forwardedTo?.section,
+        forwardedTo: s.forwardedTo
+      }))
+    });
+    
+    return filtered;
   }, [forwardedSubmissions]);
 
   const approvedList = useMemo(() => {
@@ -1288,8 +1343,14 @@ export default function EEPHDashboard({
                                   </td>
                                   <td className="p-2 text-xs align-top">
                                     {s.detailedReport ? (
-                                      <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                      <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                     ) : (<span className="text-gray-400">No report</span>)}
+                                  </td>
+                                  <td className="p-2 text-xs align-top">
+                                    <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                  </td>
+                                  <td className="p-2 text-xs align-top">
+                                    <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                   </td>
                                   <td className="p-2 text-xs align-top">
                                     {selectedView === "pending" ? (

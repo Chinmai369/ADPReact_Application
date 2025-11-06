@@ -195,6 +195,27 @@ export default function ENCPHDashboard({
         return false;
       }
     );
+    
+    // Debug: Log files in pending submissions
+    if (pending.length > 0) {
+      console.log("🔍 ENCPH - Pending submissions count:", pending.length);
+      pending.forEach((s, index) => {
+        console.log(`🔍 ENCPH - Submission ${index + 1}:`, {
+          id: s.id,
+          status: s.status,
+          hasCommitteeReport: !!s.committeeReport,
+          hasCouncilResolution: !!s.councilResolution,
+          committeeReportType: s.committeeReport ? (typeof s.committeeReport) : 'null',
+          councilResolutionType: s.councilResolution ? (typeof s.councilResolution) : 'null',
+          committeeReportValue: s.committeeReport ? (s.committeeReport.substring ? s.committeeReport.substring(0, 50) + '...' : 'not a string') : 'null',
+          councilResolutionValue: s.councilResolution ? (s.councilResolution.substring ? s.councilResolution.substring(0, 50) + '...' : 'not a string') : 'null',
+          allKeys: Object.keys(s).filter(k => k.includes('Report') || k.includes('Resolution') || k.includes('Image')),
+        });
+      });
+    } else {
+      console.log("🔍 ENCPH - No pending submissions");
+    }
+    
     setPendingList(pending);
     const approved = forwardedSubmissions.filter((s) => s.status === "Forwarded to CDMA" || s.status === "CDMA Approved");
     setApprovedList(approved);
@@ -498,8 +519,9 @@ export default function ENCPHDashboard({
       return;
     }
     
-    setForwardedSubmissions((prev) =>
-      prev.map((f) =>
+    setForwardedSubmissions((prev) => {
+      const currentSub = prev.find((f) => f.id === previewSubmission.id);
+      return prev.map((f) =>
         f.id === previewSubmission.id
           ? {
               ...f,
@@ -510,10 +532,15 @@ export default function ENCPHDashboard({
                 remarks: approveRemarks,
               },
               remarks: approveRemarks,
+              // Explicitly preserve all file properties - check multiple sources
+              workImage: previewSubmission.workImage || f.workImage || currentSub?.workImage || null,
+              detailedReport: previewSubmission.detailedReport || f.detailedReport || currentSub?.detailedReport || null,
+              committeeReport: previewSubmission.committeeReport || f.committeeReport || currentSub?.committeeReport || null,
+              councilResolution: previewSubmission.councilResolution || f.councilResolution || currentSub?.councilResolution || null,
             }
           : f
-      )
-    );
+      );
+    });
     // Close modal immediately
     setShowApprovePanel(false);
     setPreviewSubmission(null);
@@ -546,13 +573,24 @@ export default function ENCPHDashboard({
       return;
     }
 
-    setForwardedSubmissions((prev) =>
-      prev.map((f) =>
+    setForwardedSubmissions((prev) => {
+      const currentSub = prev.find((f) => f.id === previewSubmission.id);
+      return prev.map((f) =>
         f.id === previewSubmission.id
-          ? { ...f, status: "ENCPH Rejected", remarks: rejectRemarks, rejectedBy: "ENCPH" }
+          ? { 
+              ...f, 
+              status: "ENCPH Rejected", 
+              remarks: rejectRemarks, 
+              rejectedBy: "ENCPH",
+              // Explicitly preserve all file properties - check multiple sources
+              workImage: previewSubmission.workImage || f.workImage || currentSub?.workImage || null,
+              detailedReport: previewSubmission.detailedReport || f.detailedReport || currentSub?.detailedReport || null,
+              committeeReport: previewSubmission.committeeReport || f.committeeReport || currentSub?.committeeReport || null,
+              councilResolution: previewSubmission.councilResolution || f.councilResolution || currentSub?.councilResolution || null,
+            }
           : f
-      )
-    );
+      );
+    });
     setRejectBanner("Work rejected and sent back to SEPH.");
     setTimeout(() => {
       setRejectBanner("");
@@ -1102,7 +1140,19 @@ export default function ENCPHDashboard({
                                       ) : (<span className="text-gray-400">No report</span>)}
                                     </td>
                                     <td className="p-2 text-xs align-top">
-                                      <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                      {(() => {
+                                        // Debug log for first item
+                                        if (idxInGroup === 0 && globalSerial === 1) {
+                                          console.log("🔍 ENCPH Table - Rendering files for submission:", {
+                                            id: s.id,
+                                            hasCommitteeReport: !!s.committeeReport,
+                                            hasCouncilResolution: !!s.councilResolution,
+                                            committeeReportType: s.committeeReport ? (typeof s.committeeReport) : 'null',
+                                            councilResolutionType: s.councilResolution ? (typeof s.councilResolution) : 'null',
+                                          });
+                                        }
+                                        return <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />;
+                                      })()}
                                     </td>
                                     <td className="p-2 text-xs align-top">
                                       <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
@@ -1134,8 +1184,14 @@ export default function ENCPHDashboard({
                                 </td>
                                 <td className="p-2 text-xs align-top">
                                   {s.detailedReport ? (
-                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                    <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
                                 <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                               </tr>
@@ -1162,8 +1218,14 @@ export default function ENCPHDashboard({
                                 </td>
                                 <td className="p-2 text-xs align-top">
                                   {s.detailedReport ? (
-                                    <a href={getFileUrl(s.detailedReport)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">View</a>
+                                    <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : (<span className="text-gray-400">No report</span>)}
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
+                                </td>
+                                <td className="p-2 text-xs align-top">
+                                  <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
                                 <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
                                 {selectedView === "pending" && (

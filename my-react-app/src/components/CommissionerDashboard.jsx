@@ -777,6 +777,16 @@ export default function CommissionerDashboard({
         councilResolution: forwardedSub?.councilResolution instanceof File,
       });
       
+      console.log("✅ Commissioner forwarded - Final submission details:", {
+        id: forwardedSub?.id,
+        status: forwardedSub?.status,
+        forwardedTo: forwardedSub?.forwardedTo,
+        section: forwardedSub?.forwardedTo?.section,
+        department: forwardedSub?.forwardedTo?.department,
+        willAppearInEEPH: forwardedSub?.status?.toLowerCase().includes("forwarded to eeph") || 
+                         forwardedSub?.forwardedTo?.section?.toLowerCase() === "eeph"
+      });
+      
       return updated;
     });
 

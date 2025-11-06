@@ -11,18 +11,54 @@ import { getUser, verifyToken, clearAuth, logout as apiLogout } from "./services
 
 // localStorage key for persisted submissions
 const STORAGE_KEY = "forwardedSubmissions";
+const STORAGE_TIMESTAMP_KEY = "forwardedSubmissions_timestamp";
+const STORAGE_DURATION = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 function App() {
   // Load submissions from localStorage on mount
   const [forwardedSubmissions, setForwardedSubmissions] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
+      const timestamp = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+      
       console.log("🔌 App.js loading from localStorage:", saved ? "found" : "empty");
-      if (saved) {
+      
+      if (saved && timestamp) {
+        const savedTime = parseInt(timestamp, 10);
+        const currentTime = Date.now();
+        const ageInMs = currentTime - savedTime;
+        const ageInHours = ageInMs / (1000 * 60 * 60);
+        
+        console.log("📅 Data age:", {
+          savedAt: new Date(savedTime).toLocaleString(),
+          currentTime: new Date(currentTime).toLocaleString(),
+          ageInHours: ageInHours.toFixed(2),
+          ageInDays: (ageInHours / 24).toFixed(2),
+          isExpired: ageInMs > STORAGE_DURATION
+        });
+        
+        // Check if data is older than 1 day
+        if (ageInMs > STORAGE_DURATION) {
+          console.warn("⚠️ Stored data is older than 1 day, clearing localStorage");
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+          console.log("📝 Initializing with empty array (data expired)");
+          return [];
+        }
+        
         const parsed = JSON.parse(saved);
-        console.log("✅ Loaded submissions from localStorage:", parsed.length);
-        // Handle File objects - they can't be serialized, so we'll handle them separately
-        // For now, we'll parse what we can
+        console.log("✅ Loaded submissions from localStorage:", {
+          count: parsed.length,
+          age: `${ageInHours.toFixed(2)} hours`,
+          expiresIn: `${((STORAGE_DURATION - ageInMs) / (1000 * 60 * 60)).toFixed(2)} hours`
+        });
+        return parsed || [];
+      } else if (saved) {
+        // Legacy data without timestamp - keep it but add timestamp
+        const parsed = JSON.parse(saved);
+        console.log("✅ Loaded legacy submissions from localStorage (no timestamp):", parsed.length);
+        // Add timestamp for future checks
+        localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
         return parsed || [];
       }
     } catch (error) {
@@ -61,7 +97,7 @@ function App() {
         };
 
         // Convert all File objects to base64 data URLs
-        const serializable = await Promise.all(
+        let serializable = await Promise.all(
           forwardedSubmissions.map(async (sub) => {
             const copy = { ...sub };
             
@@ -75,10 +111,141 @@ function App() {
           })
         );
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
-        console.log("💾 Saved submissions to localStorage:", serializable.length);
+        // Check size before saving - localStorage typically has 5-10MB limit
+        const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB limit (leave some headroom)
+        let jsonString = JSON.stringify(serializable);
+        let dataSize = new Blob([jsonString]).size;
+        
+        console.log("💾 Attempting to save:", {
+          submissions: serializable.length,
+          dataSize: `${(dataSize / 1024 / 1024).toFixed(2)} MB`,
+          maxSize: `${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(2)} MB`
+        });
+
+        // If data is too large, keep only the most recent submissions
+        if (dataSize > MAX_STORAGE_SIZE) {
+          console.warn("⚠️ Data size exceeds limit, keeping only most recent submissions");
+          
+          // Sort by ID (which includes timestamp) descending to get most recent first
+          serializable.sort((a, b) => (b.id || 0) - (a.id || 0));
+          
+          // Try to keep as many as possible while staying under limit
+          let kept = [];
+          let currentSize = 0;
+          
+          for (let sub of serializable) {
+            const subJson = JSON.stringify([...kept, sub]);
+            const subSize = new Blob([subJson]).size;
+            
+            if (subSize <= MAX_STORAGE_SIZE) {
+              kept.push(sub);
+              currentSize = subSize;
+            } else {
+              break;
+            }
+          }
+          
+          // Reverse to maintain chronological order (oldest first)
+          kept.reverse();
+          
+          serializable = kept;
+          jsonString = JSON.stringify(serializable);
+          dataSize = new Blob([jsonString]).size;
+          
+          console.warn(`⚠️ Reduced to ${kept.length} most recent submissions (${(dataSize / 1024 / 1024).toFixed(2)} MB)`);
+          
+          // Update state to match what we're saving (to prevent repeated size issues)
+          // Use setTimeout to avoid updating state during render
+          setTimeout(() => {
+            setForwardedSubmissions(serializable);
+          }, 0);
+        }
+
+        // Save data with current timestamp
+        localStorage.setItem(STORAGE_KEY, jsonString);
+        localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+        
+        console.log("✅ Saved submissions to localStorage:", {
+          count: serializable.length,
+          size: `${(dataSize / 1024 / 1024).toFixed(2)} MB`,
+          timestamp: new Date().toLocaleString(),
+          expiresAt: new Date(Date.now() + STORAGE_DURATION).toLocaleString()
+        });
       } catch (error) {
-        console.error("Error saving submissions to localStorage:", error);
+        if (error.name === 'QuotaExceededError') {
+          console.error("❌ localStorage quota exceeded. Attempting to reduce data size...");
+          
+          // Try to save only the most recent 50 submissions
+          try {
+            const recentSubmissions = forwardedSubmissions
+              .sort((a, b) => (b.id || 0) - (a.id || 0))
+              .slice(0, 50)
+              .reverse();
+            
+            // Convert to serializable format
+            const serializable = await Promise.all(
+              recentSubmissions.map(async (sub) => {
+                const copy = { ...sub };
+                if (copy.workImage instanceof File) {
+                  const reader = new FileReader();
+                  copy.workImage = await new Promise((resolve) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(copy.workImage);
+                  });
+                }
+                if (copy.detailedReport instanceof File) {
+                  const reader = new FileReader();
+                  copy.detailedReport = await new Promise((resolve) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(copy.detailedReport);
+                  });
+                }
+                if (copy.committeeReport instanceof File) {
+                  const reader = new FileReader();
+                  copy.committeeReport = await new Promise((resolve) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(copy.committeeReport);
+                  });
+                }
+                if (copy.councilResolution instanceof File) {
+                  const reader = new FileReader();
+                  copy.councilResolution = await new Promise((resolve) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(copy.councilResolution);
+                  });
+                }
+                return copy;
+              })
+            );
+            
+            // Save data with current timestamp
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+            localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+            
+            console.warn(`⚠️ Saved only ${serializable.length} most recent submissions due to storage limit`);
+            
+            // Update state to match what we saved
+            setTimeout(() => {
+              setForwardedSubmissions(serializable);
+            }, 0);
+          } catch (retryError) {
+            console.error("❌ Failed to save even reduced data:", retryError);
+            // Clear old data and try again with even fewer items
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+              localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+              console.warn("🗑️ Cleared localStorage to free up space");
+            } catch (clearError) {
+              console.error("❌ Failed to clear localStorage:", clearError);
+            }
+          }
+        } else {
+          console.error("❌ Error saving submissions to localStorage:", error);
+        }
       }
     };
 
