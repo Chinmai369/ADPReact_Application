@@ -141,6 +141,15 @@ export default function ENCPHDashboard({
   const [approveRemarks, setApproveRemarks] = useState("");
   const [selectedView, setSelectedView] = useState("pending"); // For card-based navigation
 
+  // Filter state
+  const [filters, setFilters] = useState({
+    crNumber: "",
+    sector: "",
+    status: "",
+    proposal: "",
+    locality: "",
+  });
+
   const urlCache = useRef([]);
 
   useEffect(() => {
@@ -230,6 +239,52 @@ export default function ENCPHDashboard({
       default:
         return "Pending Works";
     }
+  };
+
+  // Helper function to format locality display
+  const formatLocality = (item) => {
+    if (!item) return "";
+    if (item.locality) return item.locality;
+    if (item.area && item.wardNo) {
+      const parts = [];
+      if (item.area) parts.push(item.area);
+      if (item.locality) parts.push(item.locality);
+      if (item.wardNo) parts.push(`Ward No: ${item.wardNo}`);
+      return parts.join(", ");
+    }
+    return item.locality || "-";
+  };
+
+  // Filter function to apply filters to list
+  const applyFilters = (list) => {
+    return list.filter((item) => {
+      // Sector filter
+      if (filters.sector && item.sector !== filters.sector) {
+        return false;
+      }
+      // Status filter
+      if (filters.status && item.status !== filters.status) {
+        return false;
+      }
+      return true;
+    });
+  };
+
+  // Get unique sectors and statuses for filter dropdowns
+  const getUniqueSectors = (list) => {
+    const sectors = new Set();
+    list.forEach(item => {
+      if (item.sector) sectors.add(item.sector);
+    });
+    return Array.from(sectors).sort();
+  };
+
+  const getUniqueStatuses = (list) => {
+    const statuses = new Set();
+    list.forEach(item => {
+      if (item.status) statuses.add(item.status);
+    });
+    return Array.from(statuses).sort();
   };
 
   useEffect(() => {
@@ -668,12 +723,16 @@ export default function ENCPHDashboard({
           {/* Dynamic Table based on selected view */}
           {(() => {
             const currentList = getListForView(selectedView);
+            const filteredList = applyFilters(currentList);
             const viewTitle = getViewTitle(selectedView);
+            const uniqueSectors = getUniqueSectors(currentList);
+            const uniqueStatuses = getUniqueStatuses(currentList);
             
             return (
               <>
-                <h3 className="text-sm text-gray-600 mb-2">{viewTitle}</h3>
-                {currentList.length === 0 ? (
+                <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
+                
+                {filteredList.length === 0 ? (
                   <p className="text-gray-500 text-sm">No items to display.</p>
           ) : (
             <div className="overflow-auto max-h-80">
@@ -681,19 +740,73 @@ export default function ENCPHDashboard({
                 <thead className="bg-gray-100 border-b">
                   <tr>
                           <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>CR Number</span>
+                              <span className="text-xs">🔍</span>
+                            </div>
+                          </th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                          <th className="p-2 text-left text-xs">Proposal</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Sector</span>
+                              <select
+                                value={filters.sector}
+                                onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
+                                className="w-20 border p-0.5 rounded text-xs"
+                                title="Filter by Sector"
+                              >
+                                <option value="">All</option>
+                                {uniqueSectors.map(sector => (
+                                  <option key={sector} value={sector}>{sector}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </th>
+                          <th className="p-2 text-left text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Proposal</span>
+                              <span className="text-xs">🔍</span>
+                            </div>
+                          </th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Locality</span>
+                              <span className="text-xs">🔍</span>
+                            </div>
+                          </th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Status</span>
+                              <select
+                                value={filters.status}
+                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                className="w-20 border p-0.5 rounded text-xs"
+                                title="Filter by Status"
+                              >
+                                <option value="">All</option>
+                                {uniqueStatuses.map(status => (
+                                  <option key={status} value={status}>{status}</option>
+                                ))}
+                              </select>
+                              {(filters.sector || filters.status) && (
+                                <button
+                                  onClick={() => setFilters({ crNumber: "", sector: "", status: "", proposal: "", locality: "" })}
+                                  className="text-xs text-blue-600 hover:text-blue-800 px-1"
+                                  title="Clear Filters"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          </th>
                           {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
                           {(selectedView === "rejected" || selectedView === "sentBackRejected") && <th className="p-2 text-left text-xs">Remarks</th>}
                   </tr>
@@ -703,7 +816,7 @@ export default function ENCPHDashboard({
                           if (selectedView === "noOfCrs") {
                             // Group by CR number for CR view
                             const groupedByCR = {};
-                            currentList.forEach((s) => {
+                            filteredList.forEach((s) => {
                               const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
                               if (!groupedByCR[crKey]) {
                                 groupedByCR[crKey] = [];
@@ -760,7 +873,7 @@ export default function ENCPHDashboard({
                             }).flat();
                           } else if (selectedView === "allWorks") {
                             // For allWorks view, show serial number for every row
-                            return currentList.map((s, i) => (
+                            return filteredList.map((s, i) => (
                               <tr key={s.id} className="border-b hover:bg-gray-50">
                                 <td className="p-2 text-xs align-top">{i + 1}</td>
                                 <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
@@ -788,7 +901,7 @@ export default function ENCPHDashboard({
                             ));
                           } else {
                             // For other views (pending, forwarded, rejected, sentBackRejected), show serial number for every row
-                            return currentList.map((s, i) => (
+                            return filteredList.map((s, i) => (
                               <tr key={s.id} className="border-b hover:bg-gray-50">
                                 <td className="p-2 text-xs align-top">{i + 1}</td>
                                 <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>

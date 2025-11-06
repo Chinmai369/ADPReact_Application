@@ -156,6 +156,15 @@ export default function CommissionerDashboard({
   // View state for card-based navigation
   const [selectedView, setSelectedView] = useState("pending");
 
+  // Filter state
+  const [filters, setFilters] = useState({
+    crNumber: "",
+    sector: "",
+    status: "",
+    proposal: "",
+    locality: "",
+  });
+
   const urlCache = useRef([]);
 
   // Clear selection when view changes
@@ -325,6 +334,52 @@ export default function CommissionerDashboard({
       default:
         return "Pending / Approval Tasks";
     }
+  };
+
+  // Helper function to format locality display
+  const formatLocality = (item) => {
+    if (!item) return "";
+    if (item.locality) return item.locality;
+    if (item.area && item.wardNo) {
+      const parts = [];
+      if (item.area) parts.push(item.area);
+      if (item.locality) parts.push(item.locality);
+      if (item.wardNo) parts.push(`Ward No: ${item.wardNo}`);
+      return parts.join(", ");
+    }
+    return item.locality || "-";
+  };
+
+  // Filter function to apply filters to list
+  const applyFilters = (list) => {
+    return list.filter((item) => {
+      // Sector filter
+      if (filters.sector && item.sector !== filters.sector) {
+        return false;
+      }
+      // Status filter
+      if (filters.status && item.status !== filters.status) {
+        return false;
+      }
+      return true;
+    });
+  };
+
+  // Get unique sectors and statuses for filter dropdowns
+  const getUniqueSectors = (list) => {
+    const sectors = new Set();
+    list.forEach(item => {
+      if (item.sector) sectors.add(item.sector);
+    });
+    return Array.from(sectors).sort();
+  };
+
+  const getUniqueStatuses = (list) => {
+    const statuses = new Set();
+    list.forEach(item => {
+      if (item.status) statuses.add(item.status);
+    });
+    return Array.from(statuses).sort();
   };
 
   // cleanup object URLs
@@ -876,16 +931,19 @@ export default function CommissionerDashboard({
           {/* Dynamic Table based on selected view */}
           {(() => {
             const currentList = getListForView(selectedView);
+            const filteredList = applyFilters(currentList);
             const showActions = selectedView === "pending";
+            const uniqueSectors = getUniqueSectors(currentList);
+            const uniqueStatuses = getUniqueStatuses(currentList);
             
             return (
               <>
-          <h3 className="text-sm text-gray-600 mb-2">
+          <h3 className="text-sm text-gray-600 mb-4">
                   {getViewTitle(selectedView)}
           </h3>
                 
                 {/* Bulk Action Buttons */}
-                {showActions && currentList.length > 0 && (
+                {showActions && filteredList.length > 0 && (
                   <div className="mb-3 flex gap-2 items-center">
                     <button
                       onClick={handleBulkApprove}
@@ -920,7 +978,7 @@ export default function CommissionerDashboard({
                   </div>
                 )}
 
-                {currentList.length === 0 ? (
+                {filteredList.length === 0 ? (
                   <p className="text-gray-500 text-sm">No items to display.</p>
           ) : (
             <div className="overflow-auto max-h-80">
@@ -932,7 +990,7 @@ export default function CommissionerDashboard({
                               <input
                                 type="checkbox"
                                 checked={(() => {
-                                  const eligibleItems = currentList.filter(s => {
+                                  const eligibleItems = filteredList.filter(s => {
                                     const isCommissionerRejected = s.status === "Rejected" && 
                                       (!s.rejectedBy || s.rejectedBy === "Commissioner" || s.rejectedBy === user?.username);
                                     return !isActionDisabled(s.status) || isCommissionerRejected;
@@ -945,32 +1003,86 @@ export default function CommissionerDashboard({
                             </th>
                           )}
                           <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>CR Number</span>
+                              <span className="text-xs">🔍</span>
+                            </div>
+                          </th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                          <th className="p-2 text-left text-xs">Proposal</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Sector</span>
+                              <select
+                                value={filters.sector}
+                                onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
+                                className="w-20 border p-0.5 rounded text-xs"
+                                title="Filter by Sector"
+                              >
+                                <option value="">All</option>
+                                {uniqueSectors.map(sector => (
+                                  <option key={sector} value={sector}>{sector}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </th>
+                          <th className="p-2 text-left text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Proposal</span>
+                              <span className="text-xs">🔍</span>
+                            </div>
+                          </th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Locality</span>
+                              <span className="text-xs">🔍</span>
+                            </div>
+                          </th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
                           <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
-                          <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
+                          <th className="p-2 text-left whitespace-nowrap text-xs">
+                            <div className="flex items-center gap-1">
+                              <span>Status</span>
+                              <select
+                                value={filters.status}
+                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                className="w-20 border p-0.5 rounded text-xs"
+                                title="Filter by Status"
+                              >
+                                <option value="">All</option>
+                                {uniqueStatuses.map(status => (
+                                  <option key={status} value={status}>{status}</option>
+                                ))}
+                              </select>
+                              {(filters.sector || filters.status) && (
+                                <button
+                                  onClick={() => setFilters({ crNumber: "", sector: "", status: "", proposal: "", locality: "" })}
+                                  className="text-xs text-blue-600 hover:text-blue-800 px-1"
+                                  title="Clear Filters"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          </th>
                           {showActions && <th className="p-2 text-left">Actions</th>}
                           {!showActions && (selectedView === "selfRejected" || selectedView === "sentBackRejected") && (
                             <th className="p-2 text-left text-xs">Remarks</th>
                           )}
-  </tr>
-</thead>
+                        </tr>
+                      </thead>
                 <tbody>
                         {(() => {
                           // Views that should show serial number for every row: allWorks, pending, forwarded, selfRejected, sentBackRejected
                           const viewsWithSerialNumbers = ["allWorks", "pending", "forwarded", "selfRejected", "sentBackRejected"];
                           
                           if (viewsWithSerialNumbers.includes(selectedView)) {
-                            return currentList.map((s, i) => {
+                            return filteredList.map((s, i) => {
                               const isCommissionerRejected = s.status === "Rejected" && 
                                 (!s.rejectedBy || s.rejectedBy === "Commissioner" || s.rejectedBy === user?.username);
                               const canSelect = !isActionDisabled(s.status) || isCommissionerRejected;
@@ -1077,7 +1189,7 @@ export default function CommissionerDashboard({
                           
                           // For other views (like "noOfCrs", "approved"), group by CR number (case-insensitive, trimmed)
                           const groupedByCR = {};
-                          currentList.forEach((s) => {
+                          filteredList.forEach((s) => {
                             const crKey = (s.crNumber || "").trim().toUpperCase() || "__NO_CR__";
                             if (!groupedByCR[crKey]) {
                               groupedByCR[crKey] = [];
