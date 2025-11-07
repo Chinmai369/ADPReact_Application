@@ -982,25 +982,25 @@ export default function CommissionerDashboard({
               )}
             </div>
           </div>
-          <nav className="p-3 space-y-2">
+          <nav className="p-2 space-y-1">
             {filteredMenuItems.length > 0 ? (
               filteredMenuItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedMenuItem(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-all duration-200 ${
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left transition-all duration-200 ${
                   selectedMenuItem === item.id
                     ? "bg-emerald-600 text-white font-semibold shadow-lg transform scale-[1.02] border-l-4 border-emerald-300"
                     : "text-slate-300 hover:bg-slate-700 hover:text-white hover:shadow-md hover:translate-x-1"
                 }`}
               >
-                <span className="text-xl">{item.icon}</span>
-                <span className="text-sm font-medium">{item.label}</span>
+                <span className="text-lg">{item.icon}</span>
+                <span className="text-xs font-medium">{item.label}</span>
               </button>
               ))
             ) : (
-              <div className="px-4 py-3 text-slate-400 text-sm text-center">
+              <div className="px-2.5 py-1.5 text-slate-400 text-xs text-center">
                 No menu items found
               </div>
             )}
