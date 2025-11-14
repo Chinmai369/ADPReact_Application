@@ -1,7 +1,7 @@
 import Header from "./Header";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import SidebarMenu from "./SidebarMenu";
-import React, { useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
+import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
 
 const TOTAL_BUDGET = 1000000;
 const fmtINR = (n) =>
@@ -1094,12 +1094,24 @@ export default function AdminDashboard({
                     <option>SWM/LQM</option>
                     <option>Water Supply</option>
                     <option>UGD Drains</option>
+                    <option>CC Drains</option>
                     <option>CC Roads</option>
                     <option>BT Roads</option>
+                    <option>Construction of Slaughter Houses</option>
                     <option>Development of Parks</option>
+                    <option>Protection of Open Spaces</option>
+                    <option>Burial grounds & Crematoriums</option>
+                    <option>Repairs to Municipal Schools</option>
+                    <option>Urban Health Clinics</option>
+                    <option>Greenery</option>
                     <option>Street Lighting</option>
+                    <option>CC Charges</option>
+                    <option>EESL Dues</option>
+                    <option>ABC & ARV Activities</option>
                     <option>Solar Panels</option>
+                    <option>CB</option>
                     <option>IEC</option>
+
                   </select>
                 </div>
 
