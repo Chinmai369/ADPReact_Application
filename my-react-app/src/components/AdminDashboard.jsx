@@ -1113,7 +1113,7 @@ export default function AdminDashboard({
                             setNumberOfWorks(value);
                           }
                         }}
-                        disabled={disableCRFields}
+                        disabled={submissions.length > 0}
                         className={`mt-1 w-full border p-2 rounded ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : ""}`}
                         placeholder="Enter number"
                       />
