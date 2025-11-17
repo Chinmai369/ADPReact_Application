@@ -238,6 +238,7 @@ export default function AdminDashboard({
     program: "",
   });
 
+
   // form fields
   const [workType, setWorkType] = useState("");
   const [proposalName, setProposalName] = useState("");
@@ -953,33 +954,11 @@ export default function AdminDashboard({
           </div>
         </div>
 
-        {/* selection chips with budget */}
-        {isSelectionReady && (
-          <div className="mb-4 bg-gray-50 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-2">
-              {selection.year && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.year}</div>}
-              {selection.installment && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.installment}</div>}
-              {selection.grantType && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.grantType}</div>}
-              {selection.program && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.program}</div>}
-            </div>
-            <div className="flex flex-wrap gap-6 items-center">
-              <div className="flex flex-col">
-                <div className="text-sm text-gray-600">Budget</div>
-                <div className="font-bold text-lg text-green-600">{fmtINR(TOTAL_BUDGET)}</div>
-              </div>
-              <div className="flex flex-col">
-                <div className="text-sm text-gray-600">Remaining</div>
-                <div className="font-bold text-lg text-red-600">{fmtINR(remainingBudget)}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Create New ADP Heading */}
-        <h2 className="text-xl font-bold mb-4 text-gray-800">Create New ADP</h2>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow p-6 border mb-6">
+         {/* Create New ADP Heading */}
+         <h2 className="text-xl font-bold mb-4 text-gray-800">Create New ADP</h2>
+ 
+         {/* Filters */}
+         <div className="bg-white rounded-xl shadow p-6 border mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="text-sm text-gray-600 font-medium">Filters</div>
             <div />
@@ -1048,25 +1027,31 @@ export default function AdminDashboard({
           </div>
         </div>
 
+        {/* Selection and Budget Section */}
+        {isSelectionReady && (
+          <div className="mb-6 bg-white rounded-xl shadow border p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2">
+              {selection.year && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm font-medium">{selection.year}</div>}
+              {selection.installment && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm font-medium">{selection.installment}</div>}
+              {selection.grantType && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm font-medium">{selection.grantType}</div>}
+              {selection.program && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm font-medium">{selection.program}</div>}
+            </div>
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-col">
+                <div className="text-sm text-gray-600">Budget</div>
+                <div className="font-bold text-lg text-green-600">{fmtINR(TOTAL_BUDGET)}</div>
+              </div>
+              <div className="flex flex-col">
+                <div className="text-sm text-gray-600">Remaining</div>
+                <div className="font-bold text-lg text-red-600">{fmtINR(remainingBudget)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Summary & form show only when selection is ready */}
         {showProgramForm && (
           <div className="space-y-6">
-            {/* Summary */}
-            <div className="bg-white rounded-xl shadow p-6 border">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-3 items-center">
-                  <div className="text-sm text-gray-600">Budget</div>
-                  <div className="font-bold text-lg text-green-500">{fmtINR(TOTAL_BUDGET)}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Remaining</div>
-                  <div className="font-bold text-lg text-red-500">
-                    {fmtINR(remainingBudget)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* RADP/ADP Form */}
             <div className="bg-white rounded-xl shadow p-6 border">
               <div className="text-sm font-medium mb-4">{selection.program} Details</div>
