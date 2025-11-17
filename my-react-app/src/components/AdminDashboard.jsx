@@ -461,6 +461,12 @@ export default function AdminDashboard({
 
     setSubmissions((s) => {
       const next = [...s, newSub];
+      console.log("✅ Submission added:", {
+        newSubmission: { id: newSub.id, proposal: newSub.proposal, sector: newSub.sector },
+        previousCount: s.length,
+        newCount: next.length,
+        allSubmissions: next.map(sub => ({ id: sub.id, proposal: sub.proposal, sector: sub.sector }))
+      });
       return next;
     });
 
@@ -528,7 +534,16 @@ export default function AdminDashboard({
     const groups = {};
     submissions.forEach((s, idx) => {
       if (!groups[s.sector]) groups[s.sector] = [];
-      groups[s.sector].push({ ...s, __idx: idx });
+      // Use a unique key combining id and index to ensure uniqueness
+      groups[s.sector].push({ ...s, __idx: idx, __uniqueKey: `${s.id || idx}-${idx}` });
+    });
+    console.log("📊 Grouped submissions:", {
+      totalSubmissions: submissions.length,
+      groups: Object.keys(groups).map(sector => ({
+        sector,
+        count: groups[sector].length,
+        items: groups[sector].map(item => ({ id: item.id, proposal: item.proposal }))
+      }))
     });
     return groups;
   }, [submissions]);
@@ -1287,7 +1302,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL</label>
+                  <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL <span className="text-red-500">*</span></label>
                   <div className="mt-1 relative">
                     {latlong && formatLatlongUrl(latlong) ? (
                       <div 
@@ -1381,7 +1396,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Upload work Image (.jpg, .png, etc.)</label>
+                  <label className="block text-sm text-gray-600">Upload work Image (.jpg, .png, etc.) <span className="text-red-500">*</span></label>
                   {workImage && (
                     <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
                       <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
@@ -1417,7 +1432,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Detailed Estimation Report (.pdf)</label>
+                  <label className="block text-sm text-gray-600">Detailed Estimation Report (.pdf) <span className="text-red-500">*</span></label>
                   {detailedReport && (
                     <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
                       <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
@@ -1564,8 +1579,10 @@ export default function AdminDashboard({
                         const group = groupedSubmissions[sector];
                         return group.map((item, idxInGroup) => {
                           const isFirst = idxInGroup === 0;
+                          // Use unique key to ensure React properly renders all rows
+                          const uniqueKey = item.__uniqueKey || `sector-${sector}-idx-${item.__idx}-${idxInGroup}`;
                           return (
-                            <tr key={item.__idx} className="border-b border-gray-300 align-top hover:bg-gray-50">
+                            <tr key={uniqueKey} className="border-b border-gray-300 align-top hover:bg-gray-50">
                               {/* S.No and sector only on first row of group */}
                               <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? groupIdx + 1 : null}
