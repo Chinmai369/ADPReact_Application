@@ -706,103 +706,154 @@ export default function AdminDashboard({
 
   // Forward to commissioner
   async function handleForwardToCommissioner() {
-    const reqCount = Number(numberOfWorks || 0);
-    const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
+    try {
+      console.log("📤 Admin: Starting forward to commissioner...");
+      const reqCount = Number(numberOfWorks || 0);
+      const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
+      
+      console.log("📤 Admin: Validation check:", {
+        reqCount,
+        totalSubmissions,
+        hasCommitteeFile: !!committeeFile,
+        hasCouncilFile: !!councilFile
+      });
+      
+      if (!Number.isInteger(reqCount) || reqCount < 1) {
+        alert("Please enter valid Number of Works (>=1).");
+        return;
+      }
+      if (totalSubmissions < reqCount) {
+        alert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
+        return;
+      }
+      if (!committeeFile || !councilFile) {
+        alert("Please upload committee and council files before forwarding.");
+        return;
+      }
     
-    if (!Number.isInteger(reqCount) || reqCount < 1) {
-      alert("Please enter valid Number of Works (>=1).");
-      return;
-    }
-    if (totalSubmissions < reqCount) {
-      alert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
-      return;
-    }
-    if (!committeeFile || !councilFile) {
-      alert("Please upload committee and council files before forwarding.");
-      return;
-    }
-  
-    const now = new Date().toISOString();
-    
-    // Build the list of submissions to forward
-    let submissionsToForward = [...submissions];
-    
-    // If editing, include the current form data as a submission
-    if (isEditing) {
-      const editedSub = {
-        id: Date.now() + Math.random(),
-        sector: workType,
-        proposal: proposalName,
-        locality: locality,
-        latlong,
-        cost: Number(estimatedCost),
-        priority: Number(prioritization),
-        crNumber: crStatus === "CR" ? crNumber : "",
-        crDate: crStatus === "CR" ? crDate : "",
-        workImage,
-        detailedReport,
-        area: area,
-        wardNo: wardNo,
-      };
-      submissionsToForward.push(editedSub);
-    }
-    
-    // Convert all File objects to Base64 data URLs before forwarding
-    const forwarded = await Promise.all(
-      submissionsToForward.map(async (s) => {
-        const converted = {
-      ...s,
-      id: Date.now() + Math.random(),
-      status: "Pending Review",
-      forwardedDate: now,
-      remarks: "",
+      const now = new Date().toISOString();
+      
+      // Build the list of submissions to forward
+      let submissionsToForward = [...submissions];
+      
+      console.log("📤 Admin: Submissions to forward:", {
+        count: submissionsToForward.length,
+        isEditing,
+        submissions: submissionsToForward.map(s => ({ id: s.id, proposal: s.proposal }))
+      });
+      
+      // If editing, include the current form data as a submission
+      if (isEditing) {
+        const editedSub = {
+          id: Date.now() + Math.random(),
+          sector: workType,
+          proposal: proposalName,
+          locality: locality,
+          latlong,
+          cost: Number(estimatedCost),
+          priority: Number(prioritization),
+          crNumber: crStatus === "CR" ? crNumber : "",
+          crDate: crStatus === "CR" ? crDate : "",
+          workImage,
+          detailedReport,
+          area: area,
+          wardNo: wardNo,
         };
-        
-        // Convert File objects to Base64 data URLs
-        converted.workImage = await fileToBase64(s.workImage);
-        converted.detailedReport = await fileToBase64(s.detailedReport);
-        converted.committeeReport = await fileToBase64(committeeFile);
-        converted.councilResolution = await fileToBase64(councilFile);
-        
-        return converted;
-      })
-    );
-  
-    setForwardedSubmissions((fs) => [...forwarded, ...fs]);
-  
-    // CLEAR ALL FORM DATA (but keep form visible)
-    // IMPORTANT: Clear in correct order to prevent useEffect from repopulating
-    setSubmissions([]);
-    setSelection({ year: "", installment: "", grantType: "", program: "" });
-    setWorkType("");
-    setProposalName("");
-    setArea("");
-    setLocality("");
-    setWardNo("");
-    setLatlong("");
-    setEstimatedCost("");
-    setPrioritization("");
-    setWorkImage(null);
-    setDetailedReport(null);
-    setCommitteeFile(null);
-    setCouncilFile(null);
-    setFormError("");
-    // Clear CR fields FIRST to prevent useEffect from recreating activeCR
-    setCrStatus("");
-    setNumberOfWorks("");
-    setCrNumber("");
-    setCrDate("");
-    setActiveCR(null);
-    setIsEditing(false); // Clear editing state after forwarding
+        submissionsToForward.push(editedSub);
+        console.log("📤 Admin: Added edited submission to forward list");
+      }
+      
+      console.log("📤 Admin: Converting files to base64...");
+      
+      // Convert all File objects to Base64 data URLs before forwarding
+      const forwarded = await Promise.all(
+        submissionsToForward.map(async (s) => {
+          try {
+            const converted = {
+              ...s,
+              id: Date.now() + Math.random(),
+              status: "Pending Review",
+              forwardedDate: now,
+              remarks: "",
+            };
+            
+            // Convert File objects to Base64 data URLs
+            converted.workImage = await fileToBase64(s.workImage);
+            converted.detailedReport = await fileToBase64(s.detailedReport);
+            converted.committeeReport = await fileToBase64(committeeFile);
+            converted.councilResolution = await fileToBase64(councilFile);
+            
+            console.log("📤 Admin: Converted submission:", {
+              id: converted.id,
+              proposal: converted.proposal,
+              hasWorkImage: !!converted.workImage,
+              hasDetailedReport: !!converted.detailedReport,
+              hasCommitteeReport: !!converted.committeeReport,
+              hasCouncilResolution: !!converted.councilResolution
+            });
+            
+            return converted;
+          } catch (error) {
+            console.error("❌ Admin: Error converting submission:", error);
+            throw error;
+          }
+        })
+      );
     
-    // Show alert
-    alert("Forwarded successfully!");
+      console.log("📤 Admin: Forwarded submissions prepared:", forwarded.length);
+      console.log("📤 Admin: Updating forwardedSubmissions state...");
+      
+      // Update the shared state via prop
+      setForwardedSubmissions((fs) => {
+        const updated = [...forwarded, ...fs];
+        console.log("📤 Admin: State update callback - current count:", fs?.length || 0, "new count:", updated.length);
+        return updated;
+      });
+      
+      console.log("✅ Admin: State updated successfully");
     
-    // Set banner message
-    setSuccessMsg("Forwarded to Commissioner!");
-  
-    // Clear message after 5 seconds
-    setTimeout(() => setSuccessMsg(""), 5000);
+      // CLEAR ALL FORM DATA (but keep form visible)
+      // IMPORTANT: Clear in correct order to prevent useEffect from repopulating
+      setSubmissions([]);
+      setSelection({ year: "", installment: "", grantType: "", program: "" });
+      setWorkType("");
+      setProposalName("");
+      setArea("");
+      setLocality("");
+      setWardNo("");
+      setLatlong("");
+      setEstimatedCost("");
+      setPrioritization("");
+      setWorkImage(null);
+      setDetailedReport(null);
+      setCommitteeFile(null);
+      setCouncilFile(null);
+      setFormError("");
+      // Clear CR fields FIRST to prevent useEffect from recreating activeCR
+      setCrStatus("");
+      setNumberOfWorks("");
+      setCrNumber("");
+      setCrDate("");
+      setActiveCR(null);
+      setIsEditing(false); // Clear editing state after forwarding
+      
+      console.log("✅ Admin: Form cleared");
+      
+      // Show alert
+      alert("Forwarded successfully!");
+      
+      // Set banner message
+      setSuccessMsg("Forwarded to Commissioner!");
+    
+      // Clear message after 5 seconds
+      setTimeout(() => setSuccessMsg(""), 5000);
+      
+      console.log("✅ Admin: Forward to commissioner completed successfully");
+    } catch (error) {
+      console.error("❌ Admin: Error forwarding to commissioner:", error);
+      alert(`Error forwarding tasks: ${error.message}`);
+      setFormError(`Error forwarding tasks: ${error.message}`);
+    }
   }
   
 

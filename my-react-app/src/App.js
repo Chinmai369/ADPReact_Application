@@ -112,7 +112,7 @@ function App() {
         );
 
         // Check size before saving - localStorage typically has 5-10MB limit
-        const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4MB limit (leave some headroom)
+        const MAX_STORAGE_SIZE = 5 * 1024 * 1024; // 5MB limit (increased to accommodate large files)
         let jsonString = JSON.stringify(serializable);
         let dataSize = new Blob([jsonString]).size;
         
@@ -131,16 +131,22 @@ function App() {
           
           // Try to keep as many as possible while staying under limit
           let kept = [];
-          let currentSize = 0;
           
           for (let sub of serializable) {
-            const subJson = JSON.stringify([...kept, sub]);
-            const subSize = new Blob([subJson]).size;
+            // Check size if we add this submission
+            const testArray = [...kept, sub];
+            const testJson = JSON.stringify(testArray);
+            const testSize = new Blob([testJson]).size;
             
-            if (subSize <= MAX_STORAGE_SIZE) {
+            if (testSize <= MAX_STORAGE_SIZE) {
               kept.push(sub);
-              currentSize = subSize;
             } else {
+              // If even a single submission exceeds the limit, we still keep it
+              // (better to have 1 submission than 0)
+              if (kept.length === 0) {
+                console.warn("⚠️ Single submission exceeds limit, but keeping it anyway");
+                kept.push(sub);
+              }
               break;
             }
           }
