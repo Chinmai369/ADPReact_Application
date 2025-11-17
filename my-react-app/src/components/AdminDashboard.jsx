@@ -1084,7 +1084,7 @@ export default function AdminDashboard({
                       <input
                         value={crNumber}
                         onChange={(e) => setCrNumber(e.target.value)}
-                        disabled={disableCRFields}
+                        disabled={submissions.length > 0}
                         className="mt-1 w-full border p-2 rounded"
                       />
                     </div>
@@ -1095,7 +1095,7 @@ export default function AdminDashboard({
                         type="date"
                         value={crDate}
                         onChange={(e) => setCrDate(e.target.value)}
-                        disabled={disableCRFields}
+                        disabled={submissions.length > 0}
                         max={new Date().toISOString().split('T')[0]}
                         className="mt-1 w-full border p-2 rounded"
                       />
@@ -1437,56 +1437,56 @@ export default function AdminDashboard({
               <div className="text-sm font-medium mb-3">Signatures and Submission</div>
 
               <div className="overflow-auto max-h-96">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse text-xs border border-gray-300">
                   <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-left text-xs border-b font-semibold">
-                      <th className="p-2 whitespace-nowrap">S.No</th>
-                      <th className="p-2 whitespace-nowrap">CR Number</th>
-                      <th className="p-2 whitespace-nowrap">CR Date</th>
-                      <th className="p-2 whitespace-nowrap">Sector</th>
-                      <th className="p-2 whitespace-nowrap">Proposal</th>
-                      <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                      <th className="p-2 whitespace-nowrap">Locality</th>
-                      <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                      <th className="p-2 whitespace-nowrap text-center">Priority</th>
-                      <th className="p-2 whitespace-nowrap">Work Image</th>
-                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                      <th className="p-2 whitespace-nowrap">Committee Report</th>
-                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
+                    <tr className="text-left text-xs border-b border-gray-300 font-semibold">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">S.No</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Number</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Date</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Sector</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Proposal</th>
+                      <th className="p-2 whitespace-nowrap text-right border-r border-gray-300">Estimated Cost</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Locality</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Lat/Long</th>
+                      <th className="p-2 whitespace-nowrap text-center border-r border-gray-300">Priority</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Work Image</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Committee Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Council Resolution</th>
                       <th className="p-2 whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {groupedKeys.length === 0 ? (
-                      <tr><td className="p-4 text-sm text-gray-500" colSpan={14}>No submissions yet.</td></tr>
+                      <tr><td className="p-4 text-sm text-gray-500 border-r border-gray-300" colSpan={14}>No submissions yet.</td></tr>
                     ) : (
                       groupedKeys.map((sector, groupIdx) => {
                         const group = groupedSubmissions[sector];
                         return group.map((item, idxInGroup) => {
                           const isFirst = idxInGroup === 0;
                           return (
-                            <tr key={item.__idx} className="border-b align-top hover:bg-gray-50">
+                            <tr key={item.__idx} className="border-b border-gray-300 align-top hover:bg-gray-50">
                               {/* S.No and sector only on first row of group */}
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? groupIdx + 1 : null}
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? (item.crNumber || "-") : null}
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? (item.crDate || "-") : null}
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? sector : null}
                               </td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.proposal}>
+                              <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={item.proposal}>
                                 {item.proposal}
                               </td>
-                              <td className="p-2 align-top text-right">{fmtINR(Math.round(item.cost))}</td>
-                              <td className="p-2 align-top max-w-xs truncate" title={formatLocality(item)}>
+                              <td className="p-2 align-top text-right border-r border-gray-300">{fmtINR(Math.round(item.cost))}</td>
+                              <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={formatLocality(item)}>
                                 {formatLocality(item)}
                               </td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.latlong || "-"}>
+                              <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={item.latlong || "-"}>
                                 {item.latlong ? (
                                   formatLatlongUrl(item.latlong) ? (
                                     <a href={formatLatlongUrl(item.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1497,21 +1497,21 @@ export default function AdminDashboard({
                                   )
                                 ) : "-"}
                               </td>
-                              <td className="p-2 align-top text-center">{item.priority}</td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top text-center border-r border-gray-300">{item.priority}</td>
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview 
                                   file={item.workImage} 
                                   defaultName="work-image.jpg" 
                                   onClick={(url) => setZoomedImage(url)}
                                 />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview file={item.detailedReport} defaultName="estimation-report.pdf" />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview file={item.committeeReport} defaultName="committee-report.pdf" />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview file={item.councilResolution} defaultName="council-resolution.pdf" />
                               </td>
                               <td className="p-2 align-top">
@@ -1554,18 +1554,18 @@ export default function AdminDashboard({
                 <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
                 
                 <div className="overflow-auto max-h-96">
-                  <table className="w-full border-collapse text-xs">
+                  <table className="w-full border-collapse text-xs border border-gray-300">
                     <thead className="bg-gray-100 sticky top-0">
-                      <tr className="text-left text-xs border-b font-semibold">
-                        <th className="p-2 whitespace-nowrap">S.No</th>
-                        <th className="p-2 whitespace-nowrap">
+                      <tr className="text-left text-xs border-b border-gray-300 font-semibold">
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">S.No</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
                           <div className="flex items-center gap-1">
                             <span>CR Number</span>
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">CR Date</th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Date</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
                           <div className="flex items-center gap-1">
                             <span>Sector</span>
                             <select
@@ -1581,26 +1581,26 @@ export default function AdminDashboard({
                             </select>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
                           <div className="flex items-center gap-1">
                             <span>Proposal</span>
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="p-2 whitespace-nowrap text-right border-r border-gray-300">Estimated Cost</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
                           <div className="flex items-center gap-1">
                             <span>Locality</span>
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                        <th className="p-2 whitespace-nowrap">Priority</th>
-                        <th className="p-2 whitespace-nowrap">Work Image</th>
-                        <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                        <th className="p-2 whitespace-nowrap">Committee Report</th>
-                        <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Lat/Long</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Priority</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Work Image</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Estimation Report</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Committee Report</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Council Resolution</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
                           <div className="flex items-center gap-1">
                             <span>Status</span>
                             <select
@@ -1630,15 +1630,15 @@ export default function AdminDashboard({
                 </thead>
                 <tbody>
                       {cdmaList.map((s, i) => (
-                        <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{i + 1}</td>
-                          <td className="p-2">{s.crNumber || "-"}</td>
-                          <td className="p-2">{s.crDate || "-"}</td>
-                        <td className="p-2">{s.sector}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                          <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                        <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                        <td className="p-2 border-r border-gray-300">{i + 1}</td>
+                          <td className="p-2 border-r border-gray-300">{s.crNumber || "-"}</td>
+                          <td className="p-2 border-r border-gray-300">{s.crDate || "-"}</td>
+                        <td className="p-2 border-r border-gray-300">{s.sector}</td>
+                          <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                        <td className="p-2 text-right border-r border-gray-300">{fmtINR(Math.round(s.cost || 0))}</td>
+                          <td className="p-2 max-w-xs truncate border-r border-gray-300" title={formatLocality(s)}>{formatLocality(s)}</td>
+                          <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.latlong || "-"}>
                             {s.latlong ? (
                               formatLatlongUrl(s.latlong) ? (
                                 <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1649,24 +1649,24 @@ export default function AdminDashboard({
                               )
                             ) : "-"}
                           </td>
-                          <td className="p-2 text-center">{s.priority}</td>
-                          <td className="p-2">
+                          <td className="p-2 text-center border-r border-gray-300">{s.priority}</td>
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview 
                               file={s.workImage} 
                               defaultName="work-image.jpg" 
                               onClick={(url) => setZoomedImage(url)}
                             />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                           </td>
-                          <td className="p-2 text-green-600">CDMA Approved</td>
+                          <td className="p-2 text-green-600 border-r border-gray-300">CDMA Approved</td>
                           <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                       </tr>
                     ))}
@@ -1682,11 +1682,11 @@ export default function AdminDashboard({
               <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
               
               <div className="overflow-auto max-h-96">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse text-xs border border-gray-300">
                   <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-left text-xs border-b font-semibold">
-                      <th className="p-2 whitespace-nowrap">S.No</th>
-                      <th className="p-2 whitespace-nowrap">
+                    <tr className="text-left text-xs border-b border-gray-300 font-semibold">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">S.No</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>CR Number</span>
                           <button
@@ -1709,7 +1709,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>CR Date</span>
                           <button
@@ -1732,7 +1732,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>Sector</span>
                           <button
@@ -1758,7 +1758,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>Proposal</span>
                           <button
@@ -1781,7 +1781,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap text-right">
+                      <th className="p-2 whitespace-nowrap text-right border-r border-gray-300">
                         <div className="flex items-center gap-1 justify-end">
                           <span>Estimated Cost</span>
                           <button
@@ -1804,7 +1804,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>Locality</span>
                           <button
@@ -1827,7 +1827,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>Lat/Long</span>
                           <button
@@ -1850,7 +1850,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>Priority</span>
                           <button
@@ -1873,11 +1873,11 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">Work Image</th>
-                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                      <th className="p-2 whitespace-nowrap">Committee Report</th>
-                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Work Image</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Committee Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Council Resolution</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
                         <div className="flex items-center gap-1">
                           <span>Status</span>
                           <button
@@ -1915,7 +1915,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap">Forwarded Date</th>}
+                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap border-r border-gray-300">Forwarded Date</th>}
                       {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap">Remarks</th>}
                     </tr>
                   </thead>
@@ -1926,7 +1926,7 @@ export default function AdminDashboard({
                         const columnCount = (selectedView === "forwarded" ? 16 : selectedView === "rejected" ? 16 : 15);
                         return (
                           <tr>
-                            <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                            <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
                               No results found. Please try different search criteria.
                             </td>
                           </tr>
@@ -1956,7 +1956,7 @@ export default function AdminDashboard({
                           const columnCount = (selectedView === "forwarded" ? 16 : selectedView === "rejected" ? 16 : 15);
                           return (
                             <tr>
-                              <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                              <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
                                 No results found. Please try different search criteria.
                               </td>
                             </tr>
@@ -1970,15 +1970,15 @@ export default function AdminDashboard({
                             const isFirstInGroup = idxInGroup === 0;
                             if (isFirstInGroup) globalSerial++;
                             return (
-                              <tr key={s.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 align-top">{isFirstInGroup ? globalSerial : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? s.sector : ""}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
-                                <td className="p-2 text-right align-top">{fmtINR(Math.round(s.cost || 0))}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={formatLocality(s)}>{formatLocality(s)}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.latlong || "-"}>
+                              <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? globalSerial : ""}</td>
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? s.sector : ""}</td>
+                                <td className="p-2 max-w-xs truncate align-top border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-right align-top border-r border-gray-300">{fmtINR(Math.round(s.cost || 0))}</td>
+                                <td className="p-2 max-w-xs truncate align-top border-r border-gray-300" title={formatLocality(s)}>{formatLocality(s)}</td>
+                                <td className="p-2 max-w-xs truncate align-top border-r border-gray-300" title={s.latlong || "-"}>
                                   {s.latlong ? (
                                     formatLatlongUrl(s.latlong) ? (
                                       <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1989,8 +1989,8 @@ export default function AdminDashboard({
                                     )
                                   ) : "-"}
                                 </td>
-                                <td className="p-2 text-center align-top">{s.priority}</td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 text-center align-top border-r border-gray-300">{s.priority}</td>
+                                <td className="p-2 align-top border-r border-gray-300">
                                   {s.workImage ? (
                                     <img 
                                       src={getFileUrl(s.workImage)} 
@@ -2000,16 +2000,16 @@ export default function AdminDashboard({
                                     />
                                   ) : (<span className="text-gray-400 text-xs">No image</span>)}
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   {s.status === "Pending Review" ? (
                                     <span className="text-yellow-600">Pending Review</span>
                                   ) : s.status === "Approved" ? (
@@ -2029,15 +2029,15 @@ export default function AdminDashboard({
                       } else {
                         // For other views, show serial number for every row
                         return filteredList.map((s, i) => (
-                          <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="p-2">{i + 1}</td>
-                            <td className="p-2">{s.crNumber || "-"}</td>
-                            <td className="p-2">{s.crDate || "-"}</td>
-                            <td className="p-2">{s.sector}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                            <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                            <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                          <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                            <td className="p-2 border-r border-gray-300">{i + 1}</td>
+                            <td className="p-2 border-r border-gray-300">{s.crNumber || "-"}</td>
+                            <td className="p-2 border-r border-gray-300">{s.crDate || "-"}</td>
+                            <td className="p-2 border-r border-gray-300">{s.sector}</td>
+                            <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                            <td className="p-2 text-right border-r border-gray-300">{fmtINR(Math.round(s.cost || 0))}</td>
+                            <td className="p-2 max-w-xs truncate border-r border-gray-300" title={formatLocality(s)}>{formatLocality(s)}</td>
+                            <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.latlong || "-"}>
                               {s.latlong ? (
                                 formatLatlongUrl(s.latlong) ? (
                                   <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -2048,8 +2048,8 @@ export default function AdminDashboard({
                                 )
                               ) : "-"}
                             </td>
-                            <td className="p-2 text-center">{s.priority}</td>
-                            <td className="p-2">
+                            <td className="p-2 text-center border-r border-gray-300">{s.priority}</td>
+                            <td className="p-2 border-r border-gray-300">
                               {s.workImage ? (
                                 <img 
                                   src={getFileUrl(s.workImage)} 
@@ -2059,16 +2059,16 @@ export default function AdminDashboard({
                                 />
                               ) : (<span className="text-gray-400 text-xs">No image</span>)}
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               {s.status === "Pending Review" ? (
                                 <span className="text-yellow-600">Pending Review</span>
                               ) : s.status === "Approved" ? (
@@ -2082,12 +2082,12 @@ export default function AdminDashboard({
                               )}
                             </td>
                             {selectedView === "forwarded" && (
-                              <td className="p-2 text-xs text-gray-600">
+                              <td className="p-2 text-xs text-gray-600 border-r border-gray-300">
                                 {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "-"}
                               </td>
                             )}
                             {selectedView === "rejected" && (
-                              <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                              <td className="p-2 text-gray-600 max-w-xs truncate border-r border-gray-300" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                             )}
                           </tr>
                         ));
