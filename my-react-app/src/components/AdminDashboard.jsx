@@ -1,5 +1,5 @@
 import Header from "./Header";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import SidebarMenu from "./SidebarMenu";
 import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
 import CustomAlert from "./CustomAlert";
@@ -190,6 +190,20 @@ export default function AdminDashboard({
   const navigate = useNavigate();
   const routerLocation = useRouterLocation();
 
+  // Custom alert and confirm state - defined early so functions can use them
+  const [alert, setAlert] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+
+  // Helper functions for alerts - wrapped in useCallback for stability
+  // Defined early so they can be used in useEffect hooks
+  const showAlert = useCallback((message, type = 'info') => {
+    setAlert({ message, type });
+  }, []);
+
+  const showConfirm = useCallback((message, onConfirm, title = 'Confirm') => {
+    setConfirm({ message, onConfirm, title });
+  }, []);
+
   // Always add dummy entry upon entering dashboard route
   useEffect(() => {
     if (routerLocation.pathname !== "/") {
@@ -201,6 +215,8 @@ export default function AdminDashboard({
   useEffect(() => {
     const handler = (event) => {
       if (routerLocation.pathname !== "/") {
+        event.preventDefault();
+        window.history.pushState(null, "", window.location.pathname);
         showConfirm(
           "Are you sure you want to logout?",
           () => {
@@ -209,12 +225,11 @@ export default function AdminDashboard({
           },
           "Logout"
         );
-        window.history.pushState(null, "", window.location.pathname);
       }
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
-  }, [routerLocation.pathname, logout, navigate]);
+  }, [routerLocation.pathname, logout, navigate, showConfirm]);
 
   // Extra: Intercept navigation to '/' with a prompt, not just popstate
   useEffect(() => {
@@ -224,6 +239,8 @@ export default function AdminDashboard({
       // Only if we are not forced by code (navigate or redirect)
       document.referrer && !document.referrer.includes("/login")
     ) {
+      // Block navigation by pushing back to the last dashboard route
+      window.history.go(1);
       showConfirm(
         "Are you sure you want to logout?",
         () => {
@@ -231,10 +248,8 @@ export default function AdminDashboard({
         },
         "Logout"
       );
-      // Block navigation by pushing back to the last dashboard route
-      window.history.go(1);
     }
-  }, [routerLocation.pathname, logout]);
+  }, [routerLocation.pathname, logout, showConfirm]);
 
   // filter selection state
   const [selection, setSelection] = useState({
@@ -272,19 +287,6 @@ export default function AdminDashboard({
   const detailedReportInputRef = useRef(null);
   const committeeFileInputRef = useRef(null);
   const councilFileInputRef = useRef(null);
-
-  // Custom alert and confirm state
-  const [alert, setAlert] = useState(null);
-  const [confirm, setConfirm] = useState(null);
-
-  // Helper functions for alerts
-  const showAlert = (message, type = 'info') => {
-    setAlert({ message, type });
-  };
-
-  const showConfirm = (message, onConfirm, title = 'Confirm') => {
-    setConfirm({ message, onConfirm, title });
-  };
 
   // local admin submissions (not forwarded yet)
   const [submissions, setSubmissions] = useState([]);
@@ -994,53 +996,65 @@ export default function AdminDashboard({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <select
-              value={selection.year}
-              onChange={(e) => {
-                setSelection({ ...selection, year: e.target.value });
-              }}
-              className="border p-2 rounded"
-            >
-              <option value="">Select year</option>
-              <option>2021-22</option>
-              <option>2022-23</option>
-              <option>2023-24</option>
-              <option>2024-25</option>
-              <option>2025-26</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Year <span className="text-red-500">*</span></label>
+              <select
+                value={selection.year}
+                onChange={(e) => {
+                  setSelection({ ...selection, year: e.target.value });
+                }}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select year</option>
+                <option>2021-22</option>
+                <option>2022-23</option>
+                <option>2023-24</option>
+                <option>2024-25</option>
+                <option>2025-26</option>
+              </select>
+            </div>
 
-            <select
-              value={selection.installment}
-              onChange={(e) => setSelection({ ...selection, installment: e.target.value })}
-              disabled={!selection.year}
-              className="border p-2 rounded"
-            >
-              <option value="">Select installment</option>
-              <option>First Installment</option>
-              <option>Second Installment</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Installment <span className="text-red-500">*</span></label>
+              <select
+                value={selection.installment}
+                onChange={(e) => setSelection({ ...selection, installment: e.target.value })}
+                disabled={!selection.year}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select installment</option>
+                <option>First Installment</option>
+                <option>Second Installment</option>
+              </select>
+            </div>
 
-            <select
-              value={selection.grantType}
-              onChange={(e) => setSelection({ ...selection, grantType: e.target.value })}
-              disabled={!selection.installment}
-              className="border p-2 rounded"
-            >
-              <option value="">Select grant type</option>
-              <option>Untied Grant</option>
-              <option>Tied Grant</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Grant Type <span className="text-red-500">*</span></label>
+              <select
+                value={selection.grantType}
+                onChange={(e) => setSelection({ ...selection, grantType: e.target.value })}
+                disabled={!selection.installment}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select grant type</option>
+                <option>Untied Grant</option>
+                <option>Tied Grant</option>
+              </select>
+            </div>
 
-            <select
-              value={selection.program}
-              onChange={(e) => setSelection({ ...selection, program: e.target.value })}
-              disabled={!selection.grantType}
-              className="border p-2 rounded"
-            >
-              <option value="">Select program</option>
-              <option>ADP</option>
-              <option>RADP</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Program <span className="text-red-500">*</span></label>
+              <select
+                value={selection.program}
+                onChange={(e) => setSelection({ ...selection, program: e.target.value })}
+                disabled={!selection.grantType}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select program</option>
+                <option>ADP</option>
+                <option>RADP</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1186,49 +1200,45 @@ export default function AdminDashboard({
                   </div>
                 )}
 
-                <div className="flex items-start">
-                  <div className="w-full">
-                    <label className="block text-sm text-gray-600 mb-1">Name of the work</label>
-                    <input
-                      value={proposalName}
-                      onChange={(e) => setProposalName(e.target.value)}
-                      className="w-full max-w-md border p-2 rounded"
-                      placeholder="Enter name of the work"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Name of the work</label>
+                  <input
+                    value={proposalName}
+                    onChange={(e) => setProposalName(e.target.value)}
+                    className="w-full max-w-md border p-2 rounded"
+                    placeholder="Enter name of the work"
+                  />
                 </div>
 
-                <div className="flex items-start">
-                  <div className="w-full">
-                    <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
-                          <input 
-                            value={area} 
-                            onChange={(e) => setArea(e.target.value)} 
-                            className="w-full border border-gray-300 p-2 rounded bg-white" 
-                            placeholder="Enter area"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
-                          <input 
-                            value={locality} 
-                            onChange={(e) => setLocality(e.target.value)} 
-                            className="w-full border border-gray-300 p-2 rounded bg-white" 
-                            placeholder="Enter locality"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
-                          <input 
-                            value={wardNo} 
-                            onChange={(e) => setWardNo(e.target.value)} 
-                            className="w-full border border-gray-300 p-2 rounded bg-white" 
-                            placeholder="Enter ward number"
-                          />
-                        </div>
+                <div>
+                  <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
+                        <input 
+                          value={area} 
+                          onChange={(e) => setArea(e.target.value)} 
+                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          placeholder="Enter area"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
+                        <input 
+                          value={locality} 
+                          onChange={(e) => setLocality(e.target.value)} 
+                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          placeholder="Enter locality"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
+                        <input 
+                          value={wardNo} 
+                          onChange={(e) => setWardNo(e.target.value)} 
+                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          placeholder="Enter ward number"
+                        />
                       </div>
                     </div>
                   </div>
@@ -1311,60 +1321,60 @@ export default function AdminDashboard({
 
                 <div className="md:col-span-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Upload work Image</label>
-                    {workImage && (
-                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                        <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
-                        {workImage instanceof File && (
-                          <div className="mt-2">
-                            <img 
-                              src={URL.createObjectURL(workImage)} 
-                              alt="Preview" 
-                              className="max-w-full h-32 object-contain rounded border"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <input 
-                      key={`workImage-${fileInputKey}`}
-                      type="file" 
-                      accept="image/*" 
-                      ref={workImageInputRef}
-                      onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
-                      className="mt-1 w-full border p-2 rounded" 
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Upload work Image</label>
+                      {workImage && (
+                        <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                          <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
+                          {workImage instanceof File && (
+                            <div className="mt-2">
+                              <img 
+                                src={URL.createObjectURL(workImage)} 
+                                alt="Preview" 
+                                className="max-w-full h-32 object-contain rounded border"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <input 
+                        key={`workImage-${fileInputKey}`}
+                        type="file" 
+                        accept="image/*" 
+                        ref={workImageInputRef}
+                        onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
+                        className="mt-1 w-full border p-2 rounded" 
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Detailed Estimation Report</label>
-                    {detailedReport && (
-                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                        <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
-                        {detailedReport instanceof File && (
-                          <div className="mt-2">
-                            <a 
-                              href={URL.createObjectURL(detailedReport)} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="text-blue-600 hover:underline"
-                            >
-                              View Report
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <input 
-                      key={`detailedReport-${fileInputKey}`}
-                      type="file" 
-                      accept=".pdf,image/*" 
-                      ref={detailedReportInputRef}
-                      onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
-                      className="mt-1 w-full border p-2 rounded" 
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Detailed Estimation Report</label>
+                      {detailedReport && (
+                        <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                          <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
+                          {detailedReport instanceof File && (
+                            <div className="mt-2">
+                              <a 
+                                href={URL.createObjectURL(detailedReport)} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                View Report
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <input 
+                        key={`detailedReport-${fileInputKey}`}
+                        type="file" 
+                        accept=".pdf,image/*" 
+                        ref={detailedReportInputRef}
+                        onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
+                        className="mt-1 w-full border p-2 rounded" 
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1399,12 +1409,42 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className="block text-sm text-gray-600">Committee Report</label>
-                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-sm text-gray-600">Committee Report (.pdf) <span className="text-red-500">*</span></label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,application/pdf" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Committee Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setCommitteeFile(null);
+                        return;
+                      }
+                      setCommitteeFile(file);
+                      setFormError(""); // Clear any previous errors
+                    }} 
+                    className="mt-1 w-full border p-2 rounded" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600">Council Resolution Report</label>
-                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-sm text-gray-600">Council Resolution Report (.pdf) <span className="text-red-500">*</span></label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,application/pdf" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Council Resolution Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setCouncilFile(null);
+                        return;
+                      }
+                      setCouncilFile(file);
+                      setFormError(""); // Clear any previous errors
+                    }} 
+                    className="mt-1 w-full border p-2 rounded" 
+                  />
                 </div>
               </div>
 
@@ -1424,56 +1464,56 @@ export default function AdminDashboard({
               <div className="text-sm font-medium mb-3">Signatures and Submission</div>
 
               <div className="overflow-auto max-h-96">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse text-xs border border-gray-300">
                   <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-left text-xs border-b font-semibold">
-                      <th className="p-2 whitespace-nowrap">S.No</th>
-                      <th className="p-2 whitespace-nowrap">CR Number</th>
-                      <th className="p-2 whitespace-nowrap">CR Date</th>
-                      <th className="p-2 whitespace-nowrap">Sector</th>
-                      <th className="p-2 whitespace-nowrap">Proposal</th>
-                      <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                      <th className="p-2 whitespace-nowrap">Locality</th>
-                      <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                      <th className="p-2 whitespace-nowrap text-center">Priority</th>
-                      <th className="p-2 whitespace-nowrap">Work Image</th>
-                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                      <th className="p-2 whitespace-nowrap">Committee Report</th>
-                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
+                    <tr className="text-left text-xs border-b border-gray-300 font-semibold">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">S.No</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Number</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Date</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Sector</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Proposal</th>
+                      <th className="p-2 whitespace-nowrap text-right border-r border-gray-300">Estimated Cost</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Locality</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Lat/Long</th>
+                      <th className="p-2 whitespace-nowrap text-center border-r border-gray-300">Priority</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Work Image</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Committee Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Council Resolution</th>
                       <th className="p-2 whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {groupedKeys.length === 0 ? (
-                      <tr><td className="p-4 text-sm text-gray-500" colSpan={14}>No submissions yet.</td></tr>
+                      <tr><td className="p-4 text-sm text-gray-500 border-r border-gray-300" colSpan={14}>No submissions yet.</td></tr>
                     ) : (
                       groupedKeys.map((sector, groupIdx) => {
                         const group = groupedSubmissions[sector];
                         return group.map((item, idxInGroup) => {
                           const isFirst = idxInGroup === 0;
                           return (
-                            <tr key={item.__idx} className="border-b align-top hover:bg-gray-50">
+                            <tr key={item.__idx} className="border-b border-gray-300 align-top hover:bg-gray-50">
                               {/* S.No and sector only on first row of group */}
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? groupIdx + 1 : null}
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? (item.crNumber || "-") : null}
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? (item.crDate || "-") : null}
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 {isFirst ? sector : null}
                               </td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.proposal}>
+                              <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={item.proposal}>
                                 {item.proposal}
                               </td>
-                              <td className="p-2 align-top text-right">{fmtINR(Math.round(item.cost))}</td>
-                              <td className="p-2 align-top max-w-xs truncate" title={formatLocality(item)}>
+                              <td className="p-2 align-top text-right border-r border-gray-300">{fmtINR(Math.round(item.cost))}</td>
+                              <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={formatLocality(item)}>
                                 {formatLocality(item)}
                               </td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.latlong || "-"}>
+                              <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={item.latlong || "-"}>
                                 {item.latlong ? (
                                   formatLatlongUrl(item.latlong) ? (
                                     <a href={formatLatlongUrl(item.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1484,21 +1524,21 @@ export default function AdminDashboard({
                                   )
                                 ) : "-"}
                               </td>
-                              <td className="p-2 align-top text-center">{item.priority}</td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top text-center border-r border-gray-300">{item.priority}</td>
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview 
                                   file={item.workImage} 
                                   defaultName="work-image.jpg" 
                                   onClick={(url) => setZoomedImage(url)}
                                 />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview file={item.detailedReport} defaultName="estimation-report.pdf" />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview file={item.committeeReport} defaultName="committee-report.pdf" />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="p-2 align-top border-r border-gray-300">
                                 <FilePreview file={item.councilResolution} defaultName="council-resolution.pdf" />
                               </td>
                               <td className="p-2 align-top">
@@ -1541,24 +1581,21 @@ export default function AdminDashboard({
                 <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
                 
                 <div className="overflow-auto max-h-96">
-                  <table className="w-full border-collapse text-xs">
+                  <table className="w-full border-collapse text-xs border border-gray-300">
                     <thead className="bg-gray-100 sticky top-0">
-                      <tr className="text-left text-xs border-b font-semibold">
-                        <th className="p-2 whitespace-nowrap">S.No</th>
-                        <th className="p-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <span>CR Number</span>
-                            <span className="text-xs">🔍</span>
-                          </div>
-                        </th>
-                        <th className="p-2 whitespace-nowrap">CR Date</th>
-                        <th className="p-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <span>Sector</span>
+                      <tr className="text-left text-xs border-b border-gray-300 font-semibold">
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">S.No</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Number</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">CR Date</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Sector</span>
+                            </div>
                             <select
                               value={filters.sector}
                               onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
-                              className="w-20 border p-0.5 rounded text-xs"
+                              className="w-full border p-0.5 rounded text-xs"
                               title="Filter by Sector"
                             >
                               <option value="">All</option>
@@ -1568,32 +1605,33 @@ export default function AdminDashboard({
                             </select>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <span>Proposal</span>
-                            <span className="text-xs">🔍</span>
-                          </div>
-                        </th>
-                        <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                        <th className="p-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <span>Locality</span>
-                            <span className="text-xs">🔍</span>
-                          </div>
-                        </th>
-                        <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                        <th className="p-2 whitespace-nowrap">Priority</th>
-                        <th className="p-2 whitespace-nowrap">Work Image</th>
-                        <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                        <th className="p-2 whitespace-nowrap">Committee Report</th>
-                        <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                        <th className="p-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <span>Status</span>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Proposal</th>
+                        <th className="p-2 whitespace-nowrap text-right border-r border-gray-300">Estimated Cost</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Locality</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Lat/Long</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Priority</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Work Image</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Estimation Report</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Committee Report</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">Council Resolution</th>
+                        <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Status</span>
+                              {(filters.sector || filters.status) && (
+                                <button
+                                  onClick={() => setFilters({ crNumber: "", sector: "", status: "", proposal: "", locality: "" })}
+                                  className="text-xs text-blue-600 hover:text-blue-800 px-1"
+                                  title="Clear Filters"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
                             <select
                               value={filters.status}
                               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                              className="w-20 border p-0.5 rounded text-xs"
+                              className="w-full border p-0.5 rounded text-xs"
                               title="Filter by Status"
                             >
                               <option value="">All</option>
@@ -1601,15 +1639,6 @@ export default function AdminDashboard({
                                 <option key={status} value={status}>{status}</option>
                               ))}
                             </select>
-                            {(filters.sector || filters.status) && (
-                              <button
-                                onClick={() => setFilters({ crNumber: "", sector: "", status: "", proposal: "", locality: "" })}
-                                className="text-xs text-blue-600 hover:text-blue-800 px-1"
-                                title="Clear Filters"
-                              >
-                                ✕
-                              </button>
-                            )}
                           </div>
                         </th>
                         <th className="p-2 whitespace-nowrap">Remarks</th>
@@ -1617,15 +1646,15 @@ export default function AdminDashboard({
                 </thead>
                 <tbody>
                       {cdmaList.map((s, i) => (
-                        <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{i + 1}</td>
-                          <td className="p-2">{s.crNumber || "-"}</td>
-                          <td className="p-2">{s.crDate || "-"}</td>
-                        <td className="p-2">{s.sector}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                          <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                        <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                        <td className="p-2 border-r border-gray-300">{i + 1}</td>
+                          <td className="p-2 border-r border-gray-300">{s.crNumber || "-"}</td>
+                          <td className="p-2 border-r border-gray-300">{s.crDate || "-"}</td>
+                        <td className="p-2 border-r border-gray-300">{s.sector}</td>
+                          <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                        <td className="p-2 text-right border-r border-gray-300">{fmtINR(Math.round(s.cost || 0))}</td>
+                          <td className="p-2 max-w-xs truncate border-r border-gray-300" title={formatLocality(s)}>{formatLocality(s)}</td>
+                          <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.latlong || "-"}>
                             {s.latlong ? (
                               formatLatlongUrl(s.latlong) ? (
                                 <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1636,24 +1665,24 @@ export default function AdminDashboard({
                               )
                             ) : "-"}
                           </td>
-                          <td className="p-2 text-center">{s.priority}</td>
-                          <td className="p-2">
+                          <td className="p-2 text-center border-r border-gray-300">{s.priority}</td>
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview 
                               file={s.workImage} 
                               defaultName="work-image.jpg" 
                               onClick={(url) => setZoomedImage(url)}
                             />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 border-r border-gray-300">
                             <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                           </td>
-                          <td className="p-2 text-green-600">CDMA Approved</td>
+                          <td className="p-2 text-green-600 border-r border-gray-300">CDMA Approved</td>
                           <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                       </tr>
                     ))}
@@ -1669,72 +1698,87 @@ export default function AdminDashboard({
               <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
               
               <div className="overflow-auto max-h-96">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse text-xs border border-gray-300">
                   <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-left text-xs border-b font-semibold">
-                      <th className="p-2 whitespace-nowrap">S.No</th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>CR Number</span>
-                          <button
-                            onClick={() => toggleFilter('crNumber')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by CR Number"
-                          >
-                            🔍
-                          </button>
+                    <tr className="text-left text-xs border-b border-gray-300 font-semibold">
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">S.No</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>CR Number</span>
+                            <button
+                              onClick={() => toggleFilter('crNumber')}
+                              className="text-xs"
+                              title="Filter by CR Number"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.crNumber && (
                             <input
                               type="text"
                               value={filters.crNumber}
                               onChange={(e) => setFilters({ ...filters, crNumber: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>CR Date</span>
-                          <button
-                            onClick={() => toggleFilter('crDate')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by CR Date"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>CR Date</span>
+                            <button
+                              onClick={() => toggleFilter('crDate')}
+                              className="text-xs"
+                              title="Filter by CR Date"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.crDate && (
                             <input
                               type="text"
                               value={filters.crDate}
                               onChange={(e) => setFilters({ ...filters, crDate: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>Sector</span>
-                          <button
-                            onClick={() => toggleFilter('sector')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Sector"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>Sector</span>
+                            <button
+                              onClick={() => toggleFilter('sector')}
+                              className="text-xs"
+                              title="Filter by Sector"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.sector && (
                             <select
                               value={filters.sector}
                               onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-24 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               autoFocus
                             >
                               <option value="">All</option>
@@ -1745,141 +1789,183 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>Proposal</span>
-                          <button
-                            onClick={() => toggleFilter('proposal')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Proposal"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>Proposal</span>
+                            <button
+                              onClick={() => toggleFilter('proposal')}
+                              className="text-xs"
+                              title="Filter by Proposal"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.proposal && (
                             <input
                               type="text"
                               value={filters.proposal}
                               onChange={(e) => setFilters({ ...filters, proposal: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap text-right">
-                        <div className="flex items-center gap-1 justify-end">
-                          <span>Estimated Cost</span>
-                          <button
-                            onClick={() => toggleFilter('cost')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Cost"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap text-right border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1 justify-end">
+                            <span>Estimated Cost</span>
+                            <button
+                              onClick={() => toggleFilter('cost')}
+                              className="text-xs"
+                              title="Filter by Cost"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.cost && (
                             <input
                               type="text"
                               value={filters.cost}
                               onChange={(e) => setFilters({ ...filters, cost: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>Locality</span>
-                          <button
-                            onClick={() => toggleFilter('locality')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Locality"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>Locality</span>
+                            <button
+                              onClick={() => toggleFilter('locality')}
+                              className="text-xs"
+                              title="Filter by Locality"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.locality && (
                             <input
                               type="text"
                               value={filters.locality}
                               onChange={(e) => setFilters({ ...filters, locality: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>Lat/Long</span>
-                          <button
-                            onClick={() => toggleFilter('latLong')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Lat/Long"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>Lat/Long</span>
+                            <button
+                              onClick={() => toggleFilter('latLong')}
+                              className="text-xs"
+                              title="Filter by Lat/Long"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.latLong && (
                             <input
                               type="text"
                               value={filters.latLong}
                               onChange={(e) => setFilters({ ...filters, latLong: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Sea7rch..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>Priority</span>
-                          <button
-                            onClick={() => toggleFilter('priority')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Priority"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>Priority</span>
+                            <button
+                              onClick={() => toggleFilter('priority')}
+                              className="text-xs"
+                              title="Filter by Priority"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                          </div>
                           {activeFilters.priority && (
                             <input
                               type="text"
                               value={filters.priority}
                               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">Work Image</th>
-                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                      <th className="p-2 whitespace-nowrap">Committee Report</th>
-                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span>Status</span>
-                          <button
-                            onClick={() => toggleFilter('status')}
-                            className="text-xs hover:text-blue-600"
-                            title="Filter by Status"
-                          >
-                            🔍
-                          </button>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Work Image</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Estimation Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Committee Report</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">Council Resolution</th>
+                      <th className="p-2 whitespace-nowrap border-r border-gray-300">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span>Status</span>
+                            <button
+                              onClick={() => toggleFilter('status')}
+                              className="text-xs"
+                              title="Filter by Status"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                              </svg>
+                            </button>
+                            {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
+                              <button
+                                onClick={() => {
+                                  setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
+                                  setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 px-1"
+                                title="Clear Filters"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                           {activeFilters.status && (
                             <select
                               value={filters.status}
                               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-24 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               autoFocus
                             >
                               <option value="">All</option>
@@ -1888,21 +1974,9 @@ export default function AdminDashboard({
                               ))}
                             </select>
                           )}
-                          {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
-                            <button
-                              onClick={() => {
-                                setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
-                                setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-800 px-1 ml-1"
-                              title="Clear Filters"
-                            >
-                              ✕
-                            </button>
-                          )}
                         </div>
                       </th>
-                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap">Forwarded Date</th>}
+                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap border-r border-gray-300">Forwarded Date</th>}
                       {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap">Remarks</th>}
                     </tr>
                   </thead>
@@ -1913,7 +1987,7 @@ export default function AdminDashboard({
                         const columnCount = (selectedView === "forwarded" ? 16 : selectedView === "rejected" ? 16 : 15);
                         return (
                           <tr>
-                            <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                            <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
                               No results found. Please try different search criteria.
                             </td>
                           </tr>
@@ -1943,7 +2017,7 @@ export default function AdminDashboard({
                           const columnCount = (selectedView === "forwarded" ? 16 : selectedView === "rejected" ? 16 : 15);
                           return (
                             <tr>
-                              <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                              <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
                                 No results found. Please try different search criteria.
                               </td>
                             </tr>
@@ -1957,15 +2031,15 @@ export default function AdminDashboard({
                             const isFirstInGroup = idxInGroup === 0;
                             if (isFirstInGroup) globalSerial++;
                             return (
-                              <tr key={s.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 align-top">{isFirstInGroup ? globalSerial : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? s.sector : ""}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
-                                <td className="p-2 text-right align-top">{fmtINR(Math.round(s.cost || 0))}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={formatLocality(s)}>{formatLocality(s)}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.latlong || "-"}>
+                              <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? globalSerial : ""}</td>
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                <td className="p-2 align-top border-r border-gray-300">{isFirstInGroup ? s.sector : ""}</td>
+                                <td className="p-2 max-w-xs truncate align-top border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-right align-top border-r border-gray-300">{fmtINR(Math.round(s.cost || 0))}</td>
+                                <td className="p-2 max-w-xs truncate align-top border-r border-gray-300" title={formatLocality(s)}>{formatLocality(s)}</td>
+                                <td className="p-2 max-w-xs truncate align-top border-r border-gray-300" title={s.latlong || "-"}>
                                   {s.latlong ? (
                                     formatLatlongUrl(s.latlong) ? (
                                       <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1976,8 +2050,8 @@ export default function AdminDashboard({
                                     )
                                   ) : "-"}
                                 </td>
-                                <td className="p-2 text-center align-top">{s.priority}</td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 text-center align-top border-r border-gray-300">{s.priority}</td>
+                                <td className="p-2 align-top border-r border-gray-300">
                                   {s.workImage ? (
                                     <img 
                                       src={getFileUrl(s.workImage)} 
@@ -1987,16 +2061,16 @@ export default function AdminDashboard({
                                     />
                                   ) : (<span className="text-gray-400 text-xs">No image</span>)}
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="p-2 align-top border-r border-gray-300">
                                   {s.status === "Pending Review" ? (
                                     <span className="text-yellow-600">Pending Review</span>
                                   ) : s.status === "Approved" ? (
@@ -2016,15 +2090,15 @@ export default function AdminDashboard({
                       } else {
                         // For other views, show serial number for every row
                         return filteredList.map((s, i) => (
-                          <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="p-2">{i + 1}</td>
-                            <td className="p-2">{s.crNumber || "-"}</td>
-                            <td className="p-2">{s.crDate || "-"}</td>
-                            <td className="p-2">{s.sector}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                            <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                            <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                          <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                            <td className="p-2 border-r border-gray-300">{i + 1}</td>
+                            <td className="p-2 border-r border-gray-300">{s.crNumber || "-"}</td>
+                            <td className="p-2 border-r border-gray-300">{s.crDate || "-"}</td>
+                            <td className="p-2 border-r border-gray-300">{s.sector}</td>
+                            <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                            <td className="p-2 text-right border-r border-gray-300">{fmtINR(Math.round(s.cost || 0))}</td>
+                            <td className="p-2 max-w-xs truncate border-r border-gray-300" title={formatLocality(s)}>{formatLocality(s)}</td>
+                            <td className="p-2 max-w-xs truncate border-r border-gray-300" title={s.latlong || "-"}>
                               {s.latlong ? (
                                 formatLatlongUrl(s.latlong) ? (
                                   <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -2035,8 +2109,8 @@ export default function AdminDashboard({
                                 )
                               ) : "-"}
                             </td>
-                            <td className="p-2 text-center">{s.priority}</td>
-                            <td className="p-2">
+                            <td className="p-2 text-center border-r border-gray-300">{s.priority}</td>
+                            <td className="p-2 border-r border-gray-300">
                               {s.workImage ? (
                                 <img 
                                   src={getFileUrl(s.workImage)} 
@@ -2046,16 +2120,16 @@ export default function AdminDashboard({
                                 />
                               ) : (<span className="text-gray-400 text-xs">No image</span>)}
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 border-r border-gray-300">
                               {s.status === "Pending Review" ? (
                                 <span className="text-yellow-600">Pending Review</span>
                               ) : s.status === "Approved" ? (
@@ -2069,12 +2143,12 @@ export default function AdminDashboard({
                               )}
                             </td>
                             {selectedView === "forwarded" && (
-                              <td className="p-2 text-xs text-gray-600">
+                              <td className="p-2 text-xs text-gray-600 border-r border-gray-300">
                                 {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "-"}
                               </td>
                             )}
                             {selectedView === "rejected" && (
-                              <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                              <td className="p-2 text-gray-600 max-w-xs truncate border-r border-gray-300" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                             )}
                           </tr>
                         ));
