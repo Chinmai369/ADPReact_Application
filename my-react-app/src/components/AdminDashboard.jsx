@@ -972,53 +972,65 @@ export default function AdminDashboard({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <select
-              value={selection.year}
-              onChange={(e) => {
-                setSelection({ ...selection, year: e.target.value });
-              }}
-              className="border p-2 rounded"
-            >
-              <option value="">Select year</option>
-              <option>2021-22</option>
-              <option>2022-23</option>
-              <option>2023-24</option>
-              <option>2024-25</option>
-              <option>2025-26</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Year <span className="text-red-500">*</span></label>
+              <select
+                value={selection.year}
+                onChange={(e) => {
+                  setSelection({ ...selection, year: e.target.value });
+                }}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select year</option>
+                <option>2021-22</option>
+                <option>2022-23</option>
+                <option>2023-24</option>
+                <option>2024-25</option>
+                <option>2025-26</option>
+              </select>
+            </div>
 
-            <select
-              value={selection.installment}
-              onChange={(e) => setSelection({ ...selection, installment: e.target.value })}
-              disabled={!selection.year}
-              className="border p-2 rounded"
-            >
-              <option value="">Select installment</option>
-              <option>First Installment</option>
-              <option>Second Installment</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Installment <span className="text-red-500">*</span></label>
+              <select
+                value={selection.installment}
+                onChange={(e) => setSelection({ ...selection, installment: e.target.value })}
+                disabled={!selection.year}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select installment</option>
+                <option>First Installment</option>
+                <option>Second Installment</option>
+              </select>
+            </div>
 
-            <select
-              value={selection.grantType}
-              onChange={(e) => setSelection({ ...selection, grantType: e.target.value })}
-              disabled={!selection.installment}
-              className="border p-2 rounded"
-            >
-              <option value="">Select grant type</option>
-              <option>Untied Grant</option>
-              <option>Tied Grant</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Grant Type <span className="text-red-500">*</span></label>
+              <select
+                value={selection.grantType}
+                onChange={(e) => setSelection({ ...selection, grantType: e.target.value })}
+                disabled={!selection.installment}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select grant type</option>
+                <option>Untied Grant</option>
+                <option>Tied Grant</option>
+              </select>
+            </div>
 
-            <select
-              value={selection.program}
-              onChange={(e) => setSelection({ ...selection, program: e.target.value })}
-              disabled={!selection.grantType}
-              className="border p-2 rounded"
-            >
-              <option value="">Select program</option>
-              <option>ADP</option>
-              <option>RADP</option>
-            </select>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Program <span className="text-red-500">*</span></label>
+              <select
+                value={selection.program}
+                onChange={(e) => setSelection({ ...selection, program: e.target.value })}
+                disabled={!selection.grantType}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select program</option>
+                <option>ADP</option>
+                <option>RADP</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1068,7 +1080,7 @@ export default function AdminDashboard({
                 {crStatus === "CR" && (
                   <>
                     <div>
-                      <label className="block text-sm text-gray-600">CR Number</label>
+                      <label className="block text-sm text-gray-600">CR Number <span className="text-red-500">*</span></label>
                       <input
                         value={crNumber}
                         onChange={(e) => setCrNumber(e.target.value)}
@@ -1078,7 +1090,7 @@ export default function AdminDashboard({
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-600">CR Date</label>
+                      <label className="block text-sm text-gray-600">CR Date <span className="text-red-500">*</span></label>
                       <input
                         type="date"
                         value={crDate}
@@ -1090,7 +1102,7 @@ export default function AdminDashboard({
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-600">Number of Works</label>
+                      <label className="block text-sm text-gray-600">Number of Works <span className="text-red-500">*</span></label>
                       <input
                         type="number"
                         min="1"
@@ -1107,7 +1119,7 @@ export default function AdminDashboard({
                 )}
 
                 <div>
-                  <label className="block text-sm text-gray-600">Name of the Sector</label>
+                  <label className="block text-sm text-gray-600">Name of the Sector <span className="text-red-500">*</span></label>
                   <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
                     <option value="">Select type of work</option>
                     <option>SWM/LQM</option>
@@ -1135,7 +1147,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-600 mb-2">Name of the work</label>
+                  <label className="block text-sm text-gray-600 mb-2">Name of the work <span className="text-red-500">*</span></label>
                   <input
                     value={proposalName}
                     onChange={(e) => setProposalName(e.target.value)}
@@ -1145,7 +1157,7 @@ export default function AdminDashboard({
                   <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area <span className="text-red-500">*</span></label>
                         <input 
                           value={area} 
                           onChange={(e) => setArea(e.target.value)} 
@@ -1154,7 +1166,7 @@ export default function AdminDashboard({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality <span className="text-red-500">*</span></label>
                         <input 
                           value={locality} 
                           onChange={(e) => setLocality(e.target.value)} 
@@ -1163,7 +1175,7 @@ export default function AdminDashboard({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
+                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No <span className="text-red-500">*</span></label>
                         <input 
                           value={wardNo} 
                           onChange={(e) => setWardNo(e.target.value)} 
@@ -1251,7 +1263,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Prioritization</label>
+                  <label className="block text-sm text-gray-600">Prioritization <span className="text-red-500">*</span></label>
                   <input type="number" value={prioritization} onChange={(e) => setPrioritization(e.target.value)} className="mt-1 w-full border p-2 rounded" />
                 </div>
 
@@ -1322,11 +1334,11 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className="block text-sm text-gray-600">Committee Report</label>
+                  <label className="block text-sm text-gray-600">Committee Report <span className="text-red-500">*</span></label>
                   <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600">Council Resolution Report</label>
+                  <label className="block text-sm text-gray-600">Council Resolution Report <span className="text-red-500">*</span></label>
                   <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
                 </div>
               </div>
