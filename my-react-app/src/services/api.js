@@ -45,29 +45,49 @@ export const apiRequest = async (endpoint, options = {}) => {
     headers.Authorization = `Bearer ${token}`;
   }
 
+  const url = `${CONFIG.API_BASE_URL}${endpoint}`;
+  console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+
   try {
-    const response = await fetch(`${CONFIG.API_BASE_URL}${endpoint}`, {
+    const response = await fetch(url, {
       ...options,
       headers,
     });
 
-    const data = await response.json();
-
+    // Check if response is ok before trying to parse JSON
     if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        // If response is not JSON, use status text
+        errorData = { message: response.statusText || `HTTP ${response.status}` };
+      }
+
       // If token is invalid or expired, clear auth
       if (response.status === 401 || response.status === 403) {
         clearAuth();
-        throw new Error(data.message || "Authentication failed");
+        throw new Error(errorData.message || "Authentication failed");
       }
       // Include detailed error information if available
-      const errorMessage = data.error 
-        ? `${data.message || "Request failed"}: ${data.error}`
-        : data.message || "Request failed";
+      const errorMessage = errorData.error 
+        ? `${errorData.message || "Request failed"}: ${errorData.error}`
+        : errorData.message || "Request failed";
       throw new Error(errorMessage);
     }
 
+    const data = await response.json();
     return data;
   } catch (error) {
+    // Handle network errors specifically
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      console.error("❌ Network Error: Failed to connect to server");
+      console.error("   - Check if server is running on:", CONFIG.API_BASE_URL);
+      console.error("   - Check CORS configuration");
+      throw new Error("Unable to connect to server. Please ensure the server is running and accessible.");
+    }
+    
+    // Re-throw other errors
     console.error("API Request Error:", error);
     throw error;
   }

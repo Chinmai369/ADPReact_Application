@@ -3,8 +3,50 @@ import cors from "cors";
 import jwt from "jsonwebtoken";
 
 const app = express();
-app.use(cors());
+
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log("⚠️ CORS: Request with no origin (allowed)");
+      return callback(null, true);
+    }
+    
+    console.log(`🌐 CORS: Checking origin: ${origin}`);
+    console.log(`   - Allowed origins: ${allowedOrigins.join(', ')}`);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}. Allowed origins: ${allowedOrigins.join(', ')}`;
+      console.error(`❌ CORS: Origin rejected - ${origin}`);
+      return callback(new Error(msg), false);
+    }
+    
+    console.log(`✅ CORS: Origin allowed - ${origin}`);
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+}));
+// app.use(cors({
+//   origin: 'http://localhost:3001',
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+// }));
 app.use(express.json());
+
+// Health check endpoint (before authentication middleware)
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    success: true, 
+    message: "Server is running",
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -12,6 +54,10 @@ app.use((req, res, next) => {
   console.log(`[${timestamp}] ${req.method} ${req.path}`);
   if (req.method === "POST" && req.path === "/api/login") {
     console.log("⚠️ LOGIN REQUEST DETECTED - Detailed logs will follow!");
+  }
+  // Log CORS origin for debugging
+  if (req.headers.origin) {
+    console.log(`   - Origin: ${req.headers.origin}`);
   }
   next();
 });
