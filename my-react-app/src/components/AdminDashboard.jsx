@@ -2,6 +2,8 @@ import Header from "./Header";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import SidebarMenu from "./SidebarMenu";
 import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
+import CustomAlert from "./CustomAlert";
+import CustomConfirm from "./CustomConfirm";
 
 const TOTAL_BUDGET = 1000000;
 const fmtINR = (n) =>
@@ -199,13 +201,15 @@ export default function AdminDashboard({
   useEffect(() => {
     const handler = (event) => {
       if (routerLocation.pathname !== "/") {
-        const confirmed = window.confirm("Are you sure you want to logout?");
-        if (confirmed) {
-          logout();
-          navigate("/", { replace: true });
-        } else {
-          window.history.pushState(null, "", window.location.pathname);
-        }
+        showConfirm(
+          "Are you sure you want to logout?",
+          () => {
+            logout();
+            navigate("/", { replace: true });
+          },
+          "Logout"
+        );
+        window.history.pushState(null, "", window.location.pathname);
       }
     };
     window.addEventListener("popstate", handler);
@@ -220,13 +224,15 @@ export default function AdminDashboard({
       // Only if we are not forced by code (navigate or redirect)
       document.referrer && !document.referrer.includes("/login")
     ) {
-      const confirmed = window.confirm("Are you sure you want to logout?");
-      if (!confirmed) {
-        // Block navigation by pushing back to the last dashboard route (customize as needed)
-        window.history.go(1);
-      } else {
-        logout();
-      }
+      showConfirm(
+        "Are you sure you want to logout?",
+        () => {
+          logout();
+        },
+        "Logout"
+      );
+      // Block navigation by pushing back to the last dashboard route
+      window.history.go(1);
     }
   }, [routerLocation.pathname, logout]);
 
@@ -266,6 +272,19 @@ export default function AdminDashboard({
   const detailedReportInputRef = useRef(null);
   const committeeFileInputRef = useRef(null);
   const councilFileInputRef = useRef(null);
+
+  // Custom alert and confirm state
+  const [alert, setAlert] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+
+  // Helper functions for alerts
+  const showAlert = (message, type = 'info') => {
+    setAlert({ message, type });
+  };
+
+  const showConfirm = (message, onConfirm, title = 'Confirm') => {
+    setConfirm({ message, onConfirm, title });
+  };
 
   // local admin submissions (not forwarded yet)
   const [submissions, setSubmissions] = useState([]);
@@ -710,15 +729,15 @@ export default function AdminDashboard({
     const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
     
     if (!Number.isInteger(reqCount) || reqCount < 1) {
-      alert("Please enter valid Number of Works (>=1).");
+      showAlert("Please enter valid Number of Works (>=1).", "error");
       return;
     }
     if (totalSubmissions < reqCount) {
-      alert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
+      showAlert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`, "error");
       return;
     }
     if (!committeeFile || !councilFile) {
-      alert("Please upload committee and council files before forwarding.");
+      showAlert("Please upload committee and council files before forwarding.", "error");
       return;
     }
   
@@ -796,7 +815,7 @@ export default function AdminDashboard({
     setIsEditing(false); // Clear editing state after forwarding
     
     // Show alert
-    alert("Forwarded successfully!");
+    showAlert("Forwarded successfully!", "success");
     
     // Set banner message
     setSuccessMsg("Forwarded to Commissioner!");
@@ -852,11 +871,14 @@ export default function AdminDashboard({
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            const confirmed = window.confirm("Are you sure you want to logout?");
-            if (confirmed) {
-              logout();
-              navigate("/");
-            }
+            showConfirm(
+              "Are you sure you want to logout?",
+              () => {
+                logout();
+                navigate("/");
+              },
+              "Logout"
+            );
           }}
         />
       </div>
@@ -1066,255 +1088,310 @@ export default function AdminDashboard({
                 </div>
 
                 {crStatus === "CR" && (
-                  <>
-                    <div>
-                      <label className="block text-sm text-gray-600">CR Number</label>
-                      <input
-                        value={crNumber}
-                        onChange={(e) => setCrNumber(e.target.value)}
-                        disabled={disableCRFields}
-                        className="mt-1 w-full border p-2 rounded"
-                      />
-                    </div>
+                  <div className="md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600">CR Number</label>
+                        <input
+                          value={crNumber}
+                          onChange={(e) => setCrNumber(e.target.value)}
+                          disabled={disableCRFields}
+                          className="mt-1 w-full border p-2 rounded"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-600">CR Date</label>
-                      <input
-                        type="date"
-                        value={crDate}
-                        onChange={(e) => setCrDate(e.target.value)}
-                        disabled={disableCRFields}
-                        max={new Date().toISOString().split('T')[0]}
-                        className="mt-1 w-full border p-2 rounded"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">CR Date</label>
+                        <input
+                          type="date"
+                          value={crDate}
+                          onChange={(e) => setCrDate(e.target.value)}
+                          disabled={disableCRFields}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="mt-1 w-full border p-2 rounded"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-600">Number of Works</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={numberOfWorks}
-                        onChange={(e) => setNumberOfWorks(e.target.value)}
-                        disabled={disableCRFields}
-                        className={`mt-1 w-full border p-2 rounded ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : ""}`}
-                      />
-                      {activeCR && (
-                        <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
-                      )}
+                      <div>
+                        <label className="block text-sm text-gray-600">Number of Works</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={numberOfWorks}
+                          onChange={(e) => setNumberOfWorks(e.target.value)}
+                          disabled={disableCRFields}
+                          className={`mt-1 w-full border p-2 rounded ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : ""}`}
+                        />
+                        {activeCR && (
+                          <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-gray-600">Name of the Sector</label>
+                        <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
+                          <option value="">Select type of work</option>
+                          <option>SWM/LQM</option>
+                          <option>Water Supply</option>
+                          <option>UGD Drains</option>
+                          <option>CC Drains</option>
+                          <option>CC Roads</option>
+                          <option>BT Roads</option>
+                          <option>Construction of Slaughter Houses</option>
+                          <option>Development of Parks</option>
+                          <option>Protection of Open Spaces</option>
+                          <option>Burial grounds & Crematoriums</option>
+                          <option>Repairs to Municipal Schools</option>
+                          <option>Urban Health Clinics</option>
+                          <option>Greenery</option>
+                          <option>Street Lighting</option>
+                          <option>CC Charges</option>
+                          <option>EESL Dues</option>
+                          <option>ABC & ARV Activities</option>
+                          <option>Solar Panels</option>
+                          <option>CB</option>
+                          <option>IEC</option>
+                        </select>
+                      </div>
                     </div>
-                  </>
+                  </div>
                 )}
 
-                <div>
-                  <label className="block text-sm text-gray-600">Name of the Sector</label>
-                  <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
-                    <option value="">Select type of work</option>
-                    <option>SWM/LQM</option>
-                    <option>Water Supply</option>
-                    <option>UGD Drains</option>
-                    <option>CC Drains</option>
-                    <option>CC Roads</option>
-                    <option>BT Roads</option>
-                    <option>Construction of Slaughter Houses</option>
-                    <option>Development of Parks</option>
-                    <option>Protection of Open Spaces</option>
-                    <option>Burial grounds & Crematoriums</option>
-                    <option>Repairs to Municipal Schools</option>
-                    <option>Urban Health Clinics</option>
-                    <option>Greenery</option>
-                    <option>Street Lighting</option>
-                    <option>CC Charges</option>
-                    <option>EESL Dues</option>
-                    <option>ABC & ARV Activities</option>
-                    <option>Solar Panels</option>
-                    <option>CB</option>
-                    <option>IEC</option>
+                {crStatus !== "CR" && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm text-gray-600">Name of the Sector</label>
+                    <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
+                      <option value="">Select type of work</option>
+                      <option>SWM/LQM</option>
+                      <option>Water Supply</option>
+                      <option>UGD Drains</option>
+                      <option>CC Drains</option>
+                      <option>CC Roads</option>
+                      <option>BT Roads</option>
+                      <option>Construction of Slaughter Houses</option>
+                      <option>Development of Parks</option>
+                      <option>Protection of Open Spaces</option>
+                      <option>Burial grounds & Crematoriums</option>
+                      <option>Repairs to Municipal Schools</option>
+                      <option>Urban Health Clinics</option>
+                      <option>Greenery</option>
+                      <option>Street Lighting</option>
+                      <option>CC Charges</option>
+                      <option>EESL Dues</option>
+                      <option>ABC & ARV Activities</option>
+                      <option>Solar Panels</option>
+                      <option>CB</option>
+                      <option>IEC</option>
+                    </select>
+                  </div>
+                )}
 
-                  </select>
+                <div className="flex items-start">
+                  <div className="w-full">
+                    <label className="block text-sm text-gray-600 mb-1">Name of the work</label>
+                    <input
+                      value={proposalName}
+                      onChange={(e) => setProposalName(e.target.value)}
+                      className="w-full max-w-md border p-2 rounded"
+                      placeholder="Enter name of the work"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-full">
+                    <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
+                          <input 
+                            value={area} 
+                            onChange={(e) => setArea(e.target.value)} 
+                            className="w-full border border-gray-300 p-2 rounded bg-white" 
+                            placeholder="Enter area"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
+                          <input 
+                            value={locality} 
+                            onChange={(e) => setLocality(e.target.value)} 
+                            className="w-full border border-gray-300 p-2 rounded bg-white" 
+                            placeholder="Enter locality"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
+                          <input 
+                            value={wardNo} 
+                            onChange={(e) => setWardNo(e.target.value)} 
+                            className="w-full border border-gray-300 p-2 rounded bg-white" 
+                            placeholder="Enter ward number"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-600 mb-2">Name of the work</label>
-                  <input
-                    value={proposalName}
-                    onChange={(e) => setProposalName(e.target.value)}
-                    className="w-full border p-2 rounded mb-3"
-                    placeholder="Enter name of the work"
-                  />
-                  <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
-                        <input 
-                          value={area} 
-                          onChange={(e) => setArea(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
-                          placeholder="Enter area"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
-                        <input 
-                          value={locality} 
-                          onChange={(e) => setLocality(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
-                          placeholder="Enter locality"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
-                        <input 
-                          value={wardNo} 
-                          onChange={(e) => setWardNo(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
-                          placeholder="Enter ward number"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL</label>
-                  <div className="mt-1 relative">
-                    {latlong && formatLatlongUrl(latlong) ? (
-                      <div 
-                        className="w-full border p-2 rounded bg-white min-h-[3rem] flex items-center cursor-pointer hover:bg-blue-50"
-                        onClick={() => window.open(formatLatlongUrl(latlong), '_blank', 'noopener,noreferrer')}
-                      >
-                        <a 
-                          href={formatLatlongUrl(latlong)}
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-blue-600 hover:underline flex-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {latlong}
-                        </a>
-                        <span className="text-xs text-gray-500 ml-2">(Click to open in Google Maps)</span>
-                      </div>
-                    ) : (
-                      <textarea 
-                        value={latlong} 
-                        onChange={(e) => setLatlong(e.target.value)} 
-                        className="w-full border p-2 rounded" 
-                        placeholder="Enter coordinates (e.g., 17.3850, 78.4867) or Google Maps URL (e.g., https://maps.google.com/...)"
-                        rows={2}
-                      />
-                    )}
-                    {latlong && formatLatlongUrl(latlong) && (
-                      <button
-                        onClick={() => setLatlong("")}
-                        className="absolute top-2 right-2 text-xs text-gray-500 hover:text-gray-700"
-                        title="Clear and edit"
-                      >
-                        ✕ Edit
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center">
-                    <label className="block text-sm text-gray-600">Estimated Cost (₹) <span className="text-red-500">*</span></label>
-                    <span className="text-xs text-gray-500">
-                      {activeCR ? (
-                        <>Remaining (CR {activeCR.crNumber}): ₹{(remainingBudget - calculateCurrentCRTotal).toLocaleString('en-IN')}</>
-                      ) : (
-                        <>Remaining: ₹{remainingBudget.toLocaleString('en-IN')}</>
-                      )}
-                    </span>
-                  </div>
-                  <input
-                    type="number"
-                    value={estimatedCost}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const numValue = Number(value) || 0;
-                      const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
-                      const remainingForCR = remainingBudget - currentCRTotal;
-                      
-                      setEstimatedCost(value);
-                      
-                      if (numValue > remainingForCR) {
-                        setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
-                      } else {
-                        setCostError('');
-                      }
-                    }}
-                    min="0"
-                    className={`mt-1 w-full border p-2 rounded ${costError ? 'border-red-500' : ''}`}
-                    placeholder="Enter amount"
-                  />
-                  {costError && <p className="mt-1 text-sm text-red-600">{costError}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Prioritization</label>
-                  <input type="number" value={prioritization} onChange={(e) => setPrioritization(e.target.value)} className="mt-1 w-full border p-2 rounded" />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Upload work Image</label>
-                  {workImage && (
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                      <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
-                      {workImage instanceof File && (
-                        <div className="mt-2">
-                          <img 
-                            src={URL.createObjectURL(workImage)} 
-                            alt="Preview" 
-                            className="max-w-full h-32 object-contain rounded border"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <input 
-                    key={`workImage-${fileInputKey}`}
-                    type="file" 
-                    accept="image/*" 
-                    ref={workImageInputRef}
-                    onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
-                    className="mt-1 w-full border p-2 rounded" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Detailed Estimation Report</label>
-                  {detailedReport && (
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                      <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
-                      {detailedReport instanceof File && (
-                        <div className="mt-2">
-                          <a 
-                            href={URL.createObjectURL(detailedReport)} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="text-blue-600 hover:underline"
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="md:col-span-3">
+                      <label className="block text-sm text-gray-600 mb-1">Latitude/Longitude or Google Maps URL</label>
+                      <div className="relative">
+                        {latlong && formatLatlongUrl(latlong) ? (
+                          <div 
+                            className="w-full border p-2 rounded bg-white min-h-[3rem] flex items-center cursor-pointer hover:bg-blue-50"
+                            onClick={() => window.open(formatLatlongUrl(latlong), '_blank', 'noopener,noreferrer')}
                           >
-                            View Report
-                          </a>
-                        </div>
-                      )}
+                            <a 
+                              href={formatLatlongUrl(latlong)}
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-blue-600 hover:underline flex-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {latlong}
+                            </a>
+                            <span className="text-xs text-gray-500 ml-2">(Click to open in Google Maps)</span>
+                          </div>
+                        ) : (
+                          <textarea 
+                            value={latlong} 
+                            onChange={(e) => setLatlong(e.target.value)} 
+                            className="w-full border p-2 rounded" 
+                            placeholder="Enter coordinates (e.g., 17.3850, 78.4867) or Google Maps URL (e.g., https://maps.google.com/...)"
+                            rows={2}
+                          />
+                        )}
+                        {latlong && formatLatlongUrl(latlong) && (
+                          <button
+                            onClick={() => setLatlong("")}
+                            className="absolute top-2 right-2 text-xs text-gray-500 hover:text-gray-700"
+                            title="Clear and edit"
+                          >
+                            ✕ Edit
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  <input 
-                    key={`detailedReport-${fileInputKey}`}
-                    type="file" 
-                    accept=".pdf,image/*" 
-                    ref={detailedReportInputRef}
-                    onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
-                    className="mt-1 w-full border p-2 rounded" 
-                  />
+
+                    <div className="md:col-span-1">
+                      <label className="block text-sm text-gray-600 whitespace-nowrap mb-1">Estimated Cost (₹) <span className="text-red-500">*</span></label>
+                      <input
+                        type="number"
+                        value={estimatedCost}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const numValue = Number(value) || 0;
+                          const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
+                          const remainingForCR = remainingBudget - currentCRTotal;
+                          
+                          setEstimatedCost(value);
+                          
+                          if (numValue > remainingForCR) {
+                            setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
+                          } else {
+                            setCostError('');
+                          }
+                        }}
+                        min="0"
+                        className={`w-full border p-2 rounded ${costError ? 'border-red-500' : ''}`}
+                        placeholder="Enter amount"
+                      />
+                      {costError && <p className="mt-1 text-sm text-red-600">{costError}</p>}
+                    </div>
+
+                    <div className="md:col-span-1">
+                      <label className="block text-sm text-gray-600 mb-1">Prioritization</label>
+                      <input type="number" value={prioritization} onChange={(e) => setPrioritization(e.target.value)} className="w-full border p-2 rounded" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Upload work Image</label>
+                    {workImage && (
+                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                        <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
+                        {workImage instanceof File && (
+                          <div className="mt-2">
+                            <img 
+                              src={URL.createObjectURL(workImage)} 
+                              alt="Preview" 
+                              className="max-w-full h-32 object-contain rounded border"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <input 
+                      key={`workImage-${fileInputKey}`}
+                      type="file" 
+                      accept="image/*" 
+                      ref={workImageInputRef}
+                      onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
+                      className="mt-1 w-full border p-2 rounded" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Detailed Estimation Report</label>
+                    {detailedReport && (
+                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                        <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
+                        {detailedReport instanceof File && (
+                          <div className="mt-2">
+                            <a 
+                              href={URL.createObjectURL(detailedReport)} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              View Report
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <input 
+                      key={`detailedReport-${fileInputKey}`}
+                      type="file" 
+                      accept=".pdf,image/*" 
+                      ref={detailedReportInputRef}
+                      onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
+                      className="mt-1 w-full border p-2 rounded" 
+                    />
+                  </div>
+                  </div>
                 </div>
               </div>
 
               {formError && <div className="mt-4 text-red-600">{formError}</div>}
 
               <div className="flex justify-center gap-3 mt-4">
-                <button onClick={handleSubmitProposal} className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
+                <button onClick={handleSubmitProposal} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Submit</button>
+                <button 
+                  onClick={() => {
+                    showConfirm(
+                      "Are you sure you want to clear all form fields? This action cannot be undone.",
+                      () => {
+                        resetForm(false);
+                        setFormError("");
+                        setCostError("");
+                        setCrNumber("");
+                        setCrDate("");
+                        showAlert("Form has been cleared successfully.", "success");
+                      },
+                      "Clear Form"
+                    );
+                  }} 
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Clear
+                </button>
               </div>
 
               <div className="border-b border-gray-300 mt-4"></div>
@@ -2012,6 +2089,28 @@ export default function AdminDashboard({
           </div>
         </div>
       </div>
+      
+      {/* Custom Alert */}
+      {alert && (
+        <CustomAlert
+          message={alert.message}
+          type={alert.type}
+          onClose={() => setAlert(null)}
+        />
+      )}
+      
+      {/* Custom Confirm Dialog */}
+      {confirm && (
+        <CustomConfirm
+          message={confirm.message}
+          title={confirm.title}
+          onConfirm={() => {
+            confirm.onConfirm();
+            setConfirm(null);
+          }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 }
