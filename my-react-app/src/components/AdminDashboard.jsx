@@ -1,5 +1,5 @@
 import Header from "./Header";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import SidebarMenu from "./SidebarMenu";
 import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
 
@@ -195,41 +195,6 @@ export default function AdminDashboard({
     }
   }, [routerLocation.pathname]);
 
-  // Intercept back navigation reliably
-  useEffect(() => {
-    const handler = (event) => {
-      if (routerLocation.pathname !== "/") {
-        const confirmed = window.confirm("Are you sure you want to logout?");
-        if (confirmed) {
-          logout();
-          navigate("/", { replace: true });
-        } else {
-          window.history.pushState(null, "", window.location.pathname);
-        }
-      }
-    };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, [routerLocation.pathname, logout, navigate]);
-
-  // Extra: Intercept navigation to '/' with a prompt, not just popstate
-  useEffect(() => {
-    if (
-      routerLocation.pathname === "/" &&
-      window.history.state &&
-      // Only if we are not forced by code (navigate or redirect)
-      document.referrer && !document.referrer.includes("/login")
-    ) {
-      const confirmed = window.confirm("Are you sure you want to logout?");
-      if (!confirmed) {
-        // Block navigation by pushing back to the last dashboard route (customize as needed)
-        window.history.go(1);
-      } else {
-        logout();
-      }
-    }
-  }, [routerLocation.pathname, logout]);
-
   // filter selection state
   const [selection, setSelection] = useState({
     year: "",
@@ -254,6 +219,80 @@ export default function AdminDashboard({
   const [crNumber, setCrNumber] = useState("");
   const [crDate, setCrDate] = useState("");
   const [numberOfWorks, setNumberOfWorks] = useState("");
+  
+  // Custom alert/confirm modal state
+  const [alertModal, setAlertModal] = useState({ show: false, message: "", type: "alert" }); // type: "alert" or "confirm"
+  const [confirmCallback, setConfirmCallback] = useState(null);
+  
+  // Custom alert function
+  const showAlert = useCallback((message) => {
+    setAlertModal({ show: true, message, type: "alert" });
+  }, []);
+  
+  // Custom confirm function (returns a promise)
+  const showConfirm = useCallback((message) => {
+    return new Promise((resolve) => {
+      setAlertModal({ show: true, message, type: "confirm" });
+      setConfirmCallback(() => (confirmed) => {
+        setAlertModal({ show: false, message: "", type: "alert" });
+        setConfirmCallback(null);
+        resolve(confirmed);
+      });
+    });
+  }, []);
+  
+  const handleModalConfirm = () => {
+    if (confirmCallback) {
+      confirmCallback(true);
+    } else {
+      setAlertModal({ show: false, message: "", type: "alert" });
+    }
+  };
+  
+  const handleModalCancel = () => {
+    if (confirmCallback) {
+      confirmCallback(false);
+    } else {
+      setAlertModal({ show: false, message: "", type: "alert" });
+    }
+  };
+
+  // Intercept back navigation reliably
+  useEffect(() => {
+    const handler = (event) => {
+      if (routerLocation.pathname !== "/") {
+        showConfirm("Are you sure you want to logout?").then((confirmed) => {
+          if (confirmed) {
+            logout();
+            navigate("/", { replace: true });
+          } else {
+            window.history.pushState(null, "", window.location.pathname);
+          }
+        });
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [routerLocation.pathname, logout, navigate, showConfirm]);
+
+  // Extra: Intercept navigation to '/' with a prompt, not just popstate
+  useEffect(() => {
+    if (
+      routerLocation.pathname === "/" &&
+      window.history.state &&
+      // Only if we are not forced by code (navigate or redirect)
+      document.referrer && !document.referrer.includes("/login")
+    ) {
+      showConfirm("Are you sure you want to logout?").then((confirmed) => {
+        if (!confirmed) {
+          // Block navigation by pushing back to the last dashboard route (customize as needed)
+          window.history.go(1);
+        } else {
+          logout();
+        }
+      });
+    }
+  }, [routerLocation.pathname, logout, showConfirm]);
 
   // files
   const [workImage, setWorkImage] = useState(null);
@@ -389,6 +428,39 @@ export default function AdminDashboard({
     // Reset file input elements by changing key to force re-render
     setFileInputKey(prev => prev + 1);
     // Do not clear activeCR here
+  }
+
+  // Clear/Cancel entire application - resets everything including selections
+  function handleClearApplication() {
+    showConfirm("Are you sure you want to clear the entire application? This will reset all fields and selections.").then((confirmed) => {
+      if (confirmed) {
+        // Clear all selections
+        setSelection({ year: "", installment: "", grantType: "", program: "" });
+        // Clear all form fields
+        setWorkType("");
+        setProposalName("");
+        setArea("");
+        setLocality("");
+        setWardNo("");
+        setLatlong("");
+        setEstimatedCost("");
+        setPrioritization("");
+        setWorkImage(null);
+        setDetailedReport(null);
+        setCommitteeFile(null);
+        setCouncilFile(null);
+        setCrStatus("");
+        setCrNumber("");
+        setCrDate("");
+        setNumberOfWorks("");
+        setActiveCR(null);
+        setFormError("");
+        setCostError("");
+        setIsEditing(false);
+        // Reset file input elements
+        setFileInputKey(prev => prev + 1);
+      }
+    });
   }
 
   // When submitting a proposal
@@ -710,15 +782,15 @@ export default function AdminDashboard({
     const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
     
     if (!Number.isInteger(reqCount) || reqCount < 1) {
-      alert("Please enter valid Number of Works (>=1).");
+      showAlert("Please enter valid Number of Works (>=1).");
       return;
     }
     if (totalSubmissions < reqCount) {
-      alert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
+      showAlert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
       return;
     }
     if (!committeeFile || !councilFile) {
-      alert("Please upload committee and council files before forwarding.");
+      showAlert("Please upload committee and council files before forwarding.");
       return;
     }
   
@@ -796,7 +868,7 @@ export default function AdminDashboard({
     setIsEditing(false); // Clear editing state after forwarding
     
     // Show alert
-    alert("Forwarded successfully!");
+    showAlert("Forwarded successfully!");
     
     // Set banner message
     setSuccessMsg("Forwarded to Commissioner!");
@@ -847,21 +919,22 @@ export default function AdminDashboard({
       )}
 
       {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-6 pb-0">
+      <div className="fixed top-0 left-0 right-0 w-full bg-white shadow-md z-50 p-3 pb-0">
         <Header
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            const confirmed = window.confirm("Are you sure you want to logout?");
-            if (confirmed) {
-              logout();
-              navigate("/");
-            }
+            showConfirm("Are you sure you want to logout?").then((confirmed) => {
+              if (confirmed) {
+                logout();
+                navigate("/");
+              }
+            });
           }}
         />
       </div>
       
-      <div className="flex items-start relative pt-20 overflow-x-hidden">
+      <div className="flex items-start relative pt-16 overflow-x-hidden">
         <SidebarMenu
           menuItems={menuItems}
           selectedMenuItem={selectedMenuItem}
@@ -871,25 +944,25 @@ export default function AdminDashboard({
         />
 
         {/* Main Content Area */}
-        <div className={`flex-1 p-6 pt-4 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
+        <div className={`flex-1 p-3 pt-2 transition-all duration-300 min-w-0 ${isMenuOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="max-w-[95%] mx-auto">
             {/* Forwarding Success Banner */}
             {successMsg && (
-              <div className="mb-4 p-4 bg-green-500 text-white rounded-lg shadow-lg text-center font-semibold text-base animate-pulse">
+              <div className="mb-2 p-2 bg-green-500 text-white rounded-lg shadow-lg text-center font-semibold text-sm animate-pulse">
                 {successMsg}
               </div>
             )}
 
         {/* Statistics Cards */}
-        <div className="bg-white rounded-xl shadow p-6 border mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="bg-white rounded-xl shadow p-3 border mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
             {/* No. of CR's */}
             <div 
               onClick={() => setSelectedView("noOfCrs")}
-              className={`bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer hover:bg-blue-100 transition ${selectedView === "noOfCrs" ? "ring-2 ring-blue-500" : ""}`}
+              className={`bg-blue-50 border border-blue-200 rounded-lg p-2 cursor-pointer hover:bg-blue-100 transition ${selectedView === "noOfCrs" ? "ring-2 ring-blue-500" : ""}`}
             >
-              <div className="text-xs text-blue-600 font-medium mb-1">No. of CR's</div>
-              <div className="text-xl font-bold text-blue-700">
+              <div className="text-[10px] text-blue-600 font-medium mb-0.5">No. of CR's</div>
+              <div className="text-lg font-bold text-blue-700">
                 {(() => {
                   const groupedByCR = {};
                   [...submissions, ...(forwardedSubmissions || [])].forEach((s) => {
@@ -906,10 +979,10 @@ export default function AdminDashboard({
             {/* No. of Works */}
             <div 
               onClick={() => setSelectedView("allWorks")}
-              className={`bg-purple-50 border border-purple-200 rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition ${selectedView === "allWorks" ? "ring-2 ring-purple-500" : ""}`}
+              className={`bg-purple-50 border border-purple-200 rounded-lg p-2 cursor-pointer hover:bg-purple-100 transition ${selectedView === "allWorks" ? "ring-2 ring-purple-500" : ""}`}
             >
-              <div className="text-xs text-purple-600 font-medium mb-1">No. of Works</div>
-              <div className="text-xl font-bold text-purple-700">
+              <div className="text-[10px] text-purple-600 font-medium mb-0.5">No. of Works</div>
+              <div className="text-lg font-bold text-purple-700">
                 {submissions.length + 
                  (forwardedSubmissions || []).filter(s => 
                    s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || 
@@ -921,10 +994,10 @@ export default function AdminDashboard({
             {/* No. of Forwarded */}
             <div 
               onClick={() => setSelectedView("forwarded")}
-              className={`bg-indigo-50 border border-indigo-200 rounded-lg p-3 cursor-pointer hover:bg-indigo-100 transition ${selectedView === "forwarded" ? "ring-2 ring-indigo-500" : ""}`}
+              className={`bg-indigo-50 border border-indigo-200 rounded-lg p-2 cursor-pointer hover:bg-indigo-100 transition ${selectedView === "forwarded" ? "ring-2 ring-indigo-500" : ""}`}
             >
-              <div className="text-xs text-indigo-600 font-medium mb-1">No. of Forwarded</div>
-              <div className="text-xl font-bold text-indigo-700">
+              <div className="text-[10px] text-indigo-600 font-medium mb-0.5">No. of Forwarded</div>
+              <div className="text-lg font-bold text-indigo-700">
                 {(forwardedSubmissions || []).filter(s => s.status === "Pending Review" || s.status?.startsWith("Forwarded to") || s.status === "Approved").length}
               </div>
             </div>
@@ -932,10 +1005,10 @@ export default function AdminDashboard({
             {/* No. of Approved */}
             <div 
               onClick={() => setSelectedView("cdmaApproved")}
-              className={`bg-green-50 border border-green-200 rounded-lg p-3 cursor-pointer hover:bg-green-100 transition ${selectedView === "cdmaApproved" ? "ring-2 ring-green-500" : ""}`}
+              className={`bg-green-50 border border-green-200 rounded-lg p-2 cursor-pointer hover:bg-green-100 transition ${selectedView === "cdmaApproved" ? "ring-2 ring-green-500" : ""}`}
             >
-              <div className="text-xs text-green-600 font-medium mb-1">No. of Approved</div>
-              <div className="text-xl font-bold text-green-700">
+              <div className="text-[10px] text-green-600 font-medium mb-0.5">No. of Approved</div>
+              <div className="text-lg font-bold text-green-700">
                 {(forwardedSubmissions || []).filter(s => s.status === "CDMA Approved").length}
               </div>
             </div>
@@ -943,10 +1016,10 @@ export default function AdminDashboard({
             {/* Sent back REJECTED LIST */}
             <div 
               onClick={() => setSelectedView("rejected")}
-              className={`bg-orange-50 border border-orange-200 rounded-lg p-3 cursor-pointer hover:bg-orange-100 transition ${selectedView === "rejected" ? "ring-2 ring-orange-500" : ""}`}
+              className={`bg-orange-50 border border-orange-200 rounded-lg p-2 cursor-pointer hover:bg-orange-100 transition ${selectedView === "rejected" ? "ring-2 ring-orange-500" : ""}`}
             >
-              <div className="text-xs text-orange-600 font-medium mb-1">Sent back REJECTED LIST</div>
-              <div className="text-xl font-bold text-orange-700">
+              <div className="text-[10px] text-orange-600 font-medium mb-0.5">Sent back REJECTED LIST</div>
+              <div className="text-lg font-bold text-orange-700">
                 {(forwardedSubmissions || []).filter(s => s.status === "Rejected" && s.rejectedBy === "Commissioner").length}
               </div>
             </div>
@@ -954,30 +1027,30 @@ export default function AdminDashboard({
         </div>
 
         {/* selection chips */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {selection.year && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.year}</div>}
-          {selection.installment && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.installment}</div>}
-          {selection.grantType && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.grantType}</div>}
-          {selection.program && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.program}</div>}
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {selection.year && <div className="px-2 py-0.5 rounded-full bg-gray-100 text-xs">{selection.year}</div>}
+          {selection.installment && <div className="px-2 py-0.5 rounded-full bg-gray-100 text-xs">{selection.installment}</div>}
+          {selection.grantType && <div className="px-2 py-0.5 rounded-full bg-gray-100 text-xs">{selection.grantType}</div>}
+          {selection.program && <div className="px-2 py-0.5 rounded-full bg-gray-100 text-xs">{selection.program}</div>}
         </div>
 
         {/* Create New ADP Heading */}
-        <h2 className="text-xl font-bold mb-4 text-gray-800">Create New ADP</h2>
+        <h2 className="text-lg font-bold mb-2 text-gray-800">Create New ADP</h2>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow p-6 border mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-gray-600 font-medium">Filters</div>
+        <div className="bg-white rounded-xl shadow p-3 border mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-gray-600 font-medium">Filters</div>
             <div />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <select
               value={selection.year}
               onChange={(e) => {
                 setSelection({ ...selection, year: e.target.value });
               }}
-              className="border p-2 rounded"
+              className="border p-1.5 rounded text-sm"
             >
               <option value="">Select year</option>
               <option>2021-22</option>
@@ -991,7 +1064,7 @@ export default function AdminDashboard({
               value={selection.installment}
               onChange={(e) => setSelection({ ...selection, installment: e.target.value })}
               disabled={!selection.year}
-              className="border p-2 rounded"
+              className="border p-1.5 rounded text-sm"
             >
               <option value="">Select installment</option>
               <option>First Installment</option>
@@ -1002,7 +1075,7 @@ export default function AdminDashboard({
               value={selection.grantType}
               onChange={(e) => setSelection({ ...selection, grantType: e.target.value })}
               disabled={!selection.installment}
-              className="border p-2 rounded"
+              className="border p-1.5 rounded text-sm"
             >
               <option value="">Select grant type</option>
               <option>Untied Grant</option>
@@ -1013,7 +1086,7 @@ export default function AdminDashboard({
               value={selection.program}
               onChange={(e) => setSelection({ ...selection, program: e.target.value })}
               disabled={!selection.grantType}
-              className="border p-2 rounded"
+              className="border p-1.5 rounded text-sm"
             >
               <option value="">Select program</option>
               <option>ADP</option>
@@ -1024,17 +1097,17 @@ export default function AdminDashboard({
 
         {/* Summary & form show only when selection is ready */}
         {showProgramForm && (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {/* Summary */}
-            <div className="bg-white rounded-xl shadow p-6 border">
+            <div className="bg-white rounded-xl shadow p-3 border">
               <div className="flex justify-between items-center">
-                <div className="flex gap-3 items-center">
-                  <div className="text-sm text-gray-600">Budget</div>
-                  <div className="font-bold text-lg text-green-500">{fmtINR(TOTAL_BUDGET)}</div>
+                <div className="flex gap-2 items-center">
+                  <div className="text-xs text-gray-600">Budget</div>
+                  <div className="font-bold text-base text-green-500">{fmtINR(TOTAL_BUDGET)}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-600">Remaining</div>
-                  <div className="font-bold text-lg text-red-500">
+                  <div className="text-xs text-gray-600">Remaining</div>
+                  <div className="font-bold text-base text-red-500">
                     {fmtINR(remainingBudget)}
                   </div>
                 </div>
@@ -1042,74 +1115,81 @@ export default function AdminDashboard({
             </div>
 
             {/* RADP/ADP Form */}
-            <div className="bg-white rounded-xl shadow p-6 border">
-              <div className="text-sm font-medium mb-4">{selection.program} Details</div>
+            <div className="bg-white rounded-xl shadow p-3 border">
+              <div className="text-xs font-medium mb-2">{selection.program} Details</div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600">CR Status</label>
-                  <div className="flex gap-4 mt-2">
-                    <label className="inline-flex items-center gap-2">
+              {/* CR Status row */}
+              <div className="grid grid-cols-12 gap-3 mb-3">
+                <div className="col-span-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">CR Status</label>
+                  <div className="flex gap-4 h-[38px] items-center">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
                         name="crStatus"
                         checked={crStatus === "CR"}
                         onChange={() => setCrStatus("CR")}
+                        className="w-3.5 h-3.5 text-blue-600"
                       />
-                      <span>CR</span>
+                      <span className="text-xs text-gray-700">CR</span>
                     </label>
-                    <label className="inline-flex items-center gap-2">
-                      <input type="radio" name="crStatus" checked={crStatus === "IA"} onChange={() => setCrStatus("IA")} />
-                      <span>In anticipation</span>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="crStatus" checked={crStatus === "IA"} onChange={() => setCrStatus("IA")} className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="text-xs text-gray-700">In anticipation</span>
                     </label>
                   </div>
                 </div>
+              </div>
 
-                {crStatus === "CR" && (
-                  <>
-                    <div>
-                      <label className="block text-sm text-gray-600">CR Number</label>
-                      <input
-                        value={crNumber}
-                        onChange={(e) => setCrNumber(e.target.value)}
-                        disabled={disableCRFields}
-                        className="mt-1 w-full border p-2 rounded"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-600">CR Date</label>
-                      <input
-                        type="date"
-                        value={crDate}
-                        onChange={(e) => setCrDate(e.target.value)}
-                        disabled={disableCRFields}
-                        max={new Date().toISOString().split('T')[0]}
-                        className="mt-1 w-full border p-2 rounded"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-600">Number of Works</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={numberOfWorks}
-                        onChange={(e) => setNumberOfWorks(e.target.value)}
-                        disabled={disableCRFields}
-                        className={`mt-1 w-full border p-2 rounded ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : ""}`}
-                      />
-                      {activeCR && (
-                        <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <label className="block text-sm text-gray-600">Name of the Sector</label>
-                  <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
-                    <option value="">Select type of work</option>
+              {/* CR fields row - CR Number, CR Date, No. of Works, Name of Sector */}
+              <div className="grid grid-cols-12 gap-3 mb-3">
+                <div className="col-span-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">CR Number</label>
+                  <input
+                    value={crNumber}
+                    onChange={(e) => setCrNumber(e.target.value)}
+                    disabled={disableCRFields}
+                    className="w-full border border-gray-300 p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="Enter CR number"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">CR Date</label>
+                  <input
+                    type="date"
+                    value={crDate}
+                    onChange={(e) => setCrDate(e.target.value)}
+                    disabled={disableCRFields}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full border border-gray-300 p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">No. of Works</label>
+                  <div>
+                    <input
+                      type="text"
+                      value={numberOfWorks}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Only allow positive integers
+                        if (value === '' || /^\d+$/.test(value)) {
+                          setNumberOfWorks(value);
+                        }
+                      }}
+                      disabled={disableCRFields}
+                      className={`w-full border p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                      placeholder="Enter number"
+                    />
+                    {activeCR && (
+                      <div className="text-[10px] text-gray-500 mt-0.5">Active: {activeCR.submittedCount}/{activeCR.targetCount}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="col-span-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Name of Sector</label>
+                  <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="w-full border border-gray-300 p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="">Select sector</option>
                     <option>SWM/LQM</option>
                     <option>Water Supply</option>
                     <option>UGD Drains</option>
@@ -1130,142 +1210,163 @@ export default function AdminDashboard({
                     <option>Solar Panels</option>
                     <option>CB</option>
                     <option>IEC</option>
-
                   </select>
                 </div>
+              </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-600 mb-2">Name of the work</label>
+              {/* Name of work and Area, Locality, Ward in one row */}
+              <div className="grid grid-cols-12 gap-3 mb-3">
+                <div className="col-span-6">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Name of the work</label>
                   <input
                     value={proposalName}
                     onChange={(e) => setProposalName(e.target.value)}
-                    className="w-full border p-2 rounded mb-3"
+                    className="w-full border border-gray-300 p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter name of the work"
                   />
-                  <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                </div>
+                <div className="col-span-6">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Location Details</label>
+                  <div className="border border-gray-300 rounded-md p-2 bg-gray-50">
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area</label>
+                        <label className="block text-[10px] font-medium text-gray-600 mb-1">Area</label>
                         <input 
                           value={area} 
                           onChange={(e) => setArea(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
-                          placeholder="Enter area"
+                          className="w-full border border-gray-300 p-1.5 rounded-md bg-white text-xs h-[32px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                          placeholder="Area"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality</label>
+                        <label className="block text-[10px] font-medium text-gray-600 mb-1">Locality</label>
                         <input 
                           value={locality} 
                           onChange={(e) => setLocality(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
-                          placeholder="Enter locality"
+                          className="w-full border border-gray-300 p-1.5 rounded-md bg-white text-xs h-[32px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                          placeholder="Locality"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No</label>
+                        <label className="block text-[10px] font-medium text-gray-600 mb-1">Ward No</label>
                         <input 
                           value={wardNo} 
                           onChange={(e) => setWardNo(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
-                          placeholder="Enter ward number"
+                          className="w-full border border-gray-300 p-1.5 rounded-md bg-white text-xs h-[32px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                          placeholder="Ward No"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL</label>
-                  <div className="mt-1 relative">
+              {/* Lat/Long, Estimated Cost, and Priority in one row */}
+              <div className="grid grid-cols-12 gap-3 mb-3">
+                <div className="col-span-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Lat/Long or Maps URL</label>
+                  <div className="relative">
                     {latlong && formatLatlongUrl(latlong) ? (
                       <div 
-                        className="w-full border p-2 rounded bg-white min-h-[3rem] flex items-center cursor-pointer hover:bg-blue-50"
+                        className="w-full border border-gray-300 p-2 rounded-md bg-white h-[38px] flex items-center cursor-pointer hover:bg-blue-50 transition-colors"
                         onClick={() => window.open(formatLatlongUrl(latlong), '_blank', 'noopener,noreferrer')}
                       >
                         <a 
                           href={formatLatlongUrl(latlong)}
                           target="_blank" 
                           rel="noreferrer"
-                          className="text-blue-600 hover:underline flex-1"
+                          className="text-blue-600 hover:underline flex-1 text-xs truncate"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {latlong}
                         </a>
-                        <span className="text-xs text-gray-500 ml-2">(Click to open in Google Maps)</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLatlong(""); }}
+                          className="text-xs text-gray-500 hover:text-gray-700 ml-2 px-1"
+                          title="Clear"
+                        >
+                          ✕
+                        </button>
                       </div>
                     ) : (
                       <textarea 
                         value={latlong} 
                         onChange={(e) => setLatlong(e.target.value)} 
-                        className="w-full border p-2 rounded" 
-                        placeholder="Enter coordinates (e.g., 17.3850, 78.4867) or Google Maps URL (e.g., https://maps.google.com/...)"
+                        className="w-full border border-gray-300 p-2 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" 
+                        placeholder="Coordinates or Google Maps URL"
                         rows={2}
                       />
                     )}
-                    {latlong && formatLatlongUrl(latlong) && (
-                      <button
-                        onClick={() => setLatlong("")}
-                        className="absolute top-2 right-2 text-xs text-gray-500 hover:text-gray-700"
-                        title="Clear and edit"
-                      >
-                        ✕ Edit
-                      </button>
-                    )}
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex justify-between items-center">
-                    <label className="block text-sm text-gray-600">Estimated Cost (₹) <span className="text-red-500">*</span></label>
-                    <span className="text-xs text-gray-500">
-                      {activeCR ? (
-                        <>Remaining (CR {activeCR.crNumber}): ₹{(remainingBudget - calculateCurrentCRTotal).toLocaleString('en-IN')}</>
-                      ) : (
-                        <>Remaining: ₹{remainingBudget.toLocaleString('en-IN')}</>
-                      )}
-                    </span>
+                <div className="col-span-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Estimated Cost (₹) <span className="text-red-500">*</span></label>
+                  <div className="text-[10px] text-gray-500 mb-1 h-[14px]">
+                    {activeCR ? (
+                      <>Remaining: ₹{(remainingBudget - calculateCurrentCRTotal).toLocaleString('en-IN')}</>
+                    ) : (
+                      <>Remaining: ₹{remainingBudget.toLocaleString('en-IN')}</>
+                    )}
                   </div>
                   <input
-                    type="number"
+                    type="text"
                     value={estimatedCost}
                     onChange={(e) => {
                       const value = e.target.value;
-                      const numValue = Number(value) || 0;
-                      const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
-                      const remainingForCR = remainingBudget - currentCRTotal;
-                      
-                      setEstimatedCost(value);
-                      
-                      if (numValue > remainingForCR) {
-                        setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
-                      } else {
-                        setCostError('');
+                      // Only allow numbers and decimal point
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        const numValue = Number(value) || 0;
+                        const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
+                        const remainingForCR = remainingBudget - currentCRTotal;
+                        
+                        setEstimatedCost(value);
+                        
+                        if (value && numValue > remainingForCR) {
+                          setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
+                        } else {
+                          setCostError('');
+                        }
                       }
                     }}
-                    min="0"
-                    className={`mt-1 w-full border p-2 rounded ${costError ? 'border-red-500' : ''}`}
+                    className={`w-full border p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${costError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                     placeholder="Enter amount"
                   />
-                  {costError && <p className="mt-1 text-sm text-red-600">{costError}</p>}
+                  {costError && <p className="mt-1 text-xs text-red-600">{costError}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-600">Prioritization</label>
-                  <input type="number" value={prioritization} onChange={(e) => setPrioritization(e.target.value)} className="mt-1 w-full border p-2 rounded" />
+                <div className="col-span-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Priority</label>
+                  <div className="h-[14px] mb-1"></div>
+                  <input 
+                    type="text" 
+                    value={prioritization} 
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Only allow numbers
+                      if (value === '' || /^\d+$/.test(value)) {
+                        setPrioritization(value);
+                      }
+                    }} 
+                    className="w-full border border-gray-300 p-2 rounded-md text-sm h-[38px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    placeholder="Priority"
+                  />
                 </div>
+              </div>
 
+              {/* File upload fields in one row */}
+              <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
-                  <label className="block text-sm text-gray-600">Upload work Image</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Upload work Image</label>
                   {workImage && (
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                      <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-xs">
+                      <span className="text-green-700 font-medium">✓ File selected: {workImage.name || "Image"}</span>
                       {workImage instanceof File && (
                         <div className="mt-2">
                           <img 
                             src={URL.createObjectURL(workImage)} 
                             alt="Preview" 
-                            className="max-w-full h-32 object-contain rounded border"
+                            className="max-w-full h-20 object-contain rounded border border-gray-300"
                           />
                         </div>
                       )}
@@ -1277,22 +1378,22 @@ export default function AdminDashboard({
                     accept="image/*" 
                     ref={workImageInputRef}
                     onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
-                    className="mt-1 w-full border p-2 rounded" 
+                    className="w-full border border-gray-300 p-2 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Detailed Estimation Report</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Detailed Estimation Report</label>
                   {detailedReport && (
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                      <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
+                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-xs">
+                      <span className="text-green-700 font-medium">✓ File selected: {detailedReport.name || "Report"}</span>
                       {detailedReport instanceof File && (
                         <div className="mt-2">
                           <a 
                             href={URL.createObjectURL(detailedReport)} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline text-xs font-medium"
                           >
                             View Report
                           </a>
@@ -1306,32 +1407,33 @@ export default function AdminDashboard({
                     accept=".pdf,image/*" 
                     ref={detailedReportInputRef}
                     onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
-                    className="mt-1 w-full border p-2 rounded" 
+                    className="w-full border border-gray-300 p-2 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
                   />
                 </div>
               </div>
 
-              {formError && <div className="mt-4 text-red-600">{formError}</div>}
+              {formError && <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-600">{formError}</div>}
 
               <div className="flex justify-center gap-3 mt-4">
-                <button onClick={handleSubmitProposal} className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
+                <button onClick={handleSubmitProposal} className="px-6 py-2.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg">Submit</button>
+                <button onClick={handleClearApplication} className="px-6 py-2.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors shadow-md hover:shadow-lg">Clear</button>
               </div>
 
-              <div className="border-b border-gray-300 mt-4"></div>
+              <div className="border-b border-gray-300 mt-2"></div>
 
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                 <div>
-                  <label className="block text-sm text-gray-600">Committee Report</label>
-                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-xs text-gray-600 mb-1">Committee Report</label>
+                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="w-full border p-1.5 rounded text-sm" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600">Council Resolution Report</label>
-                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-xs text-gray-600 mb-1">Council Resolution Report</label>
+                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="w-full border p-1.5 rounded text-sm" />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-4">
+              <div className="flex justify-end gap-2 mt-2">
                 <button
                   onClick={handleForwardToCommissioner}
                   disabled={!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile}
@@ -1343,91 +1445,98 @@ export default function AdminDashboard({
             </div>
 
             {/* Post submit + signatures + merged table */}
-            <div className="bg-white rounded-xl shadow p-6 border">
-              <div className="text-sm font-medium mb-3">Signatures and Submission</div>
+            <div className="bg-white rounded-xl shadow p-3 border">
+              <div className="text-xs font-medium mb-2">Signatures and Submission</div>
 
-              <div className="overflow-auto max-h-96">
+              <div className="overflow-auto max-h-96 shadow-sm rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-left text-xs border-b font-semibold">
-                      <th className="p-2 whitespace-nowrap">S.No</th>
-                      <th className="p-2 whitespace-nowrap">CR Number</th>
-                      <th className="p-2 whitespace-nowrap">CR Date</th>
-                      <th className="p-2 whitespace-nowrap">Sector</th>
-                      <th className="p-2 whitespace-nowrap">Proposal</th>
-                      <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                      <th className="p-2 whitespace-nowrap">Locality</th>
-                      <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                      <th className="p-2 whitespace-nowrap text-center">Priority</th>
-                      <th className="p-2 whitespace-nowrap">Work Image</th>
-                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                      <th className="p-2 whitespace-nowrap">Committee Report</th>
-                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                      <th className="p-2 whitespace-nowrap">Actions</th>
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
+                    <tr className="text-left text-xs border-b-2 border-gray-300">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">S.No</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">CR Number</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">CR Date</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Sector</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Proposal</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap text-right border-r border-gray-300 font-semibold text-gray-700">Estimated Cost</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Locality</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Lat/Long</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap text-center border-r border-gray-300 font-semibold text-gray-700">Priority</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Work Image</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Estimation Report</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Committee Report</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Council Resolution</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="bg-white">
                     {groupedKeys.length === 0 ? (
-                      <tr><td className="p-4 text-sm text-gray-500" colSpan={14}>No submissions yet.</td></tr>
+                      <tr><td className="p-6 text-sm text-gray-500 text-center" colSpan={14}>No submissions yet.</td></tr>
                     ) : (
                       groupedKeys.map((sector, groupIdx) => {
                         const group = groupedSubmissions[sector];
                         return group.map((item, idxInGroup) => {
                           const isFirst = idxInGroup === 0;
                           return (
-                            <tr key={item.__idx} className="border-b align-top hover:bg-gray-50">
+                            <tr key={item.__idx} className="border-b border-gray-200 align-top hover:bg-blue-50 transition-colors">
                               {/* S.No and sector only on first row of group */}
-                              <td className="p-2 align-top">
-                                {isFirst ? groupIdx + 1 : null}
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">
+                                {isFirst ? <span className="font-medium">{groupIdx + 1}</span> : null}
                               </td>
-                              <td className="p-2 align-top">
-                                {isFirst ? (item.crNumber || "-") : null}
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">
+                                {isFirst ? (item.crNumber || <span className="text-gray-400">-</span>) : null}
                               </td>
-                              <td className="p-2 align-top">
-                                {isFirst ? (item.crDate || "-") : null}
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">
+                                {isFirst ? (item.crDate || <span className="text-gray-400">-</span>) : null}
                               </td>
-                              <td className="p-2 align-top">
-                                {isFirst ? sector : null}
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">
+                                {isFirst ? <span className="font-medium">{sector}</span> : null}
                               </td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.proposal}>
+                              <td className="px-3 py-2.5 align-top max-w-xs truncate border-r border-gray-200 text-gray-700" title={item.proposal}>
                                 {item.proposal}
                               </td>
-                              <td className="p-2 align-top text-right">{fmtINR(Math.round(item.cost))}</td>
-                              <td className="p-2 align-top max-w-xs truncate" title={formatLocality(item)}>
+                              <td className="px-3 py-2.5 align-top text-right border-r border-gray-200 text-gray-700 font-medium">{fmtINR(Math.round(item.cost))}</td>
+                              <td className="px-3 py-2.5 align-top max-w-xs truncate border-r border-gray-200 text-gray-700" title={formatLocality(item)}>
                                 {formatLocality(item)}
                               </td>
-                              <td className="p-2 align-top max-w-xs truncate" title={item.latlong || "-"}>
+                              <td className="px-3 py-2.5 align-top max-w-xs truncate border-r border-gray-200" title={item.latlong || "-"}>
                                 {item.latlong ? (
                                   formatLatlongUrl(item.latlong) ? (
-                                    <a href={formatLatlongUrl(item.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                                    <a href={formatLatlongUrl(item.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs">
                                       {item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong}
                                     </a>
                                   ) : (
-                                    item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong
+                                    <span className="text-gray-700">{item.latlong.length > 20 ? item.latlong.substring(0, 20) + "..." : item.latlong}</span>
                                   )
-                                ) : "-"}
+                                ) : <span className="text-gray-400">-</span>}
                               </td>
-                              <td className="p-2 align-top text-center">{item.priority}</td>
-                              <td className="p-2 align-top">
+                              <td className="px-3 py-2.5 align-top text-center border-r border-gray-200">
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-semibold text-xs">
+                                  {item.priority}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                 <FilePreview 
                                   file={item.workImage} 
                                   defaultName="work-image.jpg" 
                                   onClick={(url) => setZoomedImage(url)}
                                 />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                 <FilePreview file={item.detailedReport} defaultName="estimation-report.pdf" />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                 <FilePreview file={item.committeeReport} defaultName="committee-report.pdf" />
                               </td>
-                              <td className="p-2 align-top">
+                              <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                 <FilePreview file={item.councilResolution} defaultName="council-resolution.pdf" />
                               </td>
-                              <td className="p-2 align-top">
-                                <div className="flex gap-1">
-                                  <button onClick={() => handleEdit(item.__idx)} className="px-2 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Edit</button>
-                                </div>
+                              <td className="px-3 py-2.5 align-top">
+                                <button 
+                                  onClick={() => handleEdit(item.__idx)} 
+                                  className="px-2.5 py-1 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700 transition-colors font-medium shadow-sm"
+                                >
+                                  Edit
+                                </button>
                               </td>
                             </tr>
                           );
@@ -1460,22 +1569,22 @@ export default function AdminDashboard({
               );
             }
             return (
-              <div className="bg-white rounded-xl shadow p-6 border mt-6">
-                <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
+              <div className="bg-white rounded-xl shadow p-3 border mt-3">
+                <h3 className="text-xs text-gray-600 mb-2">{viewTitle}</h3>
                 
-                <div className="overflow-auto max-h-96">
+                <div className="overflow-auto max-h-96 shadow-sm rounded-lg border border-gray-200">
                   <table className="w-full border-collapse text-xs">
-                    <thead className="bg-gray-100 sticky top-0">
-                      <tr className="text-left text-xs border-b font-semibold">
-                        <th className="p-2 whitespace-nowrap">S.No</th>
-                        <th className="p-2 whitespace-nowrap">
+                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
+                      <tr className="text-left text-xs border-b-2 border-gray-300">
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">S.No</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                           <div className="flex items-center gap-1">
                             <span>CR Number</span>
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">CR Date</th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">CR Date</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                           <div className="flex items-center gap-1">
                             <span>Sector</span>
                             <select
@@ -1491,26 +1600,26 @@ export default function AdminDashboard({
                             </select>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                           <div className="flex items-center gap-1">
                             <span>Proposal</span>
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
                         <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                           <div className="flex items-center gap-1">
                             <span>Locality</span>
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">Lat/Long</th>
-                        <th className="p-2 whitespace-nowrap">Priority</th>
-                        <th className="p-2 whitespace-nowrap">Work Image</th>
-                        <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                        <th className="p-2 whitespace-nowrap">Committee Report</th>
-                        <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                        <th className="p-2 whitespace-nowrap">
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Lat/Long</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Priority</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Work Image</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Estimation Report</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Committee Report</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Council Resolution</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                           <div className="flex items-center gap-1">
                             <span>Status</span>
                             <select
@@ -1535,20 +1644,20 @@ export default function AdminDashboard({
                             )}
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap">Remarks</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
                       {cdmaList.map((s, i) => (
-                        <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{i + 1}</td>
-                          <td className="p-2">{s.crNumber || "-"}</td>
-                          <td className="p-2">{s.crDate || "-"}</td>
-                        <td className="p-2">{s.sector}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                          <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
-                          <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                        <tr key={s.id} className="border-b border-gray-200 hover:bg-blue-50 transition-colors">
+                        <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700"><span className="font-medium">{i + 1}</span></td>
+                          <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700">{s.crNumber || <span className="text-gray-400">-</span>}</td>
+                          <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700">{s.crDate || <span className="text-gray-400">-</span>}</td>
+                        <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700"><span className="font-medium">{s.sector}</span></td>
+                          <td className="px-3 py-2.5 max-w-xs truncate border-r border-gray-200 text-gray-700" title={s.proposal}>{s.proposal}</td>
+                        <td className="px-3 py-2.5 text-right border-r border-gray-200 text-gray-700 font-medium">{fmtINR(Math.round(s.cost || 0))}</td>
+                          <td className="px-3 py-2.5 max-w-xs truncate border-r border-gray-200 text-gray-700" title={formatLocality(s)}>{formatLocality(s)}</td>
+                          <td className="px-3 py-2.5 max-w-xs truncate border-r border-gray-200" title={s.latlong || "-"}>
                             {s.latlong ? (
                               formatLatlongUrl(s.latlong) ? (
                                 <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1559,25 +1668,29 @@ export default function AdminDashboard({
                               )
                             ) : "-"}
                           </td>
-                          <td className="p-2 text-center">{s.priority}</td>
-                          <td className="p-2">
+                          <td className="px-3 py-2.5 text-center border-r border-gray-200">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-semibold text-xs">
+                              {s.priority}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-gray-200">
                             <FilePreview 
                               file={s.workImage} 
                               defaultName="work-image.jpg" 
                               onClick={(url) => setZoomedImage(url)}
                             />
                           </td>
-                          <td className="p-2">
+                          <td className="px-3 py-2.5 border-r border-gray-200">
                             <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                           </td>
-                          <td className="p-2">
+                          <td className="px-3 py-2.5 border-r border-gray-200">
                             <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                           </td>
-                          <td className="p-2">
+                          <td className="px-3 py-2.5 border-r border-gray-200">
                             <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                           </td>
-                          <td className="p-2 text-green-600">CDMA Approved</td>
-                          <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                          <td className="px-3 py-2.5 text-green-600 border-r border-gray-200 font-medium">CDMA Approved</td>
+                          <td className="px-3 py-2.5 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || <span className="text-gray-400">-</span>}</td>
                       </tr>
                     ))}
                 </tbody>
@@ -1588,15 +1701,15 @@ export default function AdminDashboard({
           }
 
           return (
-            <div className="bg-white rounded-xl shadow p-6 border mt-6">
-              <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
+            <div className="bg-white rounded-xl shadow p-3 border mt-3">
+              <h3 className="text-xs text-gray-600 mb-2">{viewTitle}</h3>
               
-              <div className="overflow-auto max-h-96">
+              <div className="overflow-auto max-h-96 shadow-sm rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-left text-xs border-b font-semibold">
-                      <th className="p-2 whitespace-nowrap">S.No</th>
-                      <th className="p-2 whitespace-nowrap">
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
+                    <tr className="text-left text-xs border-b-2 border-gray-300">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">S.No</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>CR Number</span>
                           <button
@@ -1619,7 +1732,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>CR Date</span>
                           <button
@@ -1642,7 +1755,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>Sector</span>
                           <button
@@ -1668,7 +1781,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>Proposal</span>
                           <button
@@ -1714,7 +1827,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>Locality</span>
                           <button
@@ -1737,7 +1850,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>Lat/Long</span>
                           <button
@@ -1760,7 +1873,7 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>Priority</span>
                           <button
@@ -1783,11 +1896,11 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap">Work Image</th>
-                      <th className="p-2 whitespace-nowrap">Estimation Report</th>
-                      <th className="p-2 whitespace-nowrap">Committee Report</th>
-                      <th className="p-2 whitespace-nowrap">Council Resolution</th>
-                      <th className="p-2 whitespace-nowrap">
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Work Image</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Estimation Report</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Committee Report</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Council Resolution</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>Status</span>
                           <button
@@ -1825,8 +1938,8 @@ export default function AdminDashboard({
                           )}
                         </div>
                       </th>
-                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap">Forwarded Date</th>}
-                      {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap">Remarks</th>}
+                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap border-r border-gray-300">Forwarded Date</th>}
+                      {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap border-r border-gray-300">Remarks</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1866,7 +1979,7 @@ export default function AdminDashboard({
                           const columnCount = (selectedView === "forwarded" ? 16 : selectedView === "rejected" ? 16 : 15);
                           return (
                             <tr>
-                              <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                              <td colSpan={columnCount} className="px-6 py-8 text-center text-gray-500 text-sm">
                                 No results found. Please try different search criteria.
                               </td>
                             </tr>
@@ -1880,15 +1993,15 @@ export default function AdminDashboard({
                             const isFirstInGroup = idxInGroup === 0;
                             if (isFirstInGroup) globalSerial++;
                             return (
-                              <tr key={s.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 align-top">{isFirstInGroup ? globalSerial : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
-                                <td className="p-2 align-top">{isFirstInGroup ? s.sector : ""}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
-                                <td className="p-2 text-right align-top">{fmtINR(Math.round(s.cost || 0))}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={formatLocality(s)}>{formatLocality(s)}</td>
-                                <td className="p-2 max-w-xs truncate align-top" title={s.latlong || "-"}>
+                              <tr key={s.id} className="border-b border-gray-200 hover:bg-blue-50 transition-colors">
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">{isFirstInGroup ? <span className="font-medium">{globalSerial}</span> : ""}</td>
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">{isFirstInGroup ? (s.crNumber || <span className="text-gray-400">-</span>) : ""}</td>
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">{isFirstInGroup ? (s.crDate || <span className="text-gray-400">-</span>) : ""}</td>
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200 text-gray-700">{isFirstInGroup ? <span className="font-medium">{s.sector}</span> : ""}</td>
+                                <td className="px-3 py-2.5 max-w-xs truncate align-top border-r border-gray-200 text-gray-700" title={s.proposal}>{s.proposal}</td>
+                                <td className="px-3 py-2.5 text-right align-top border-r border-gray-200 text-gray-700 font-medium">{fmtINR(Math.round(s.cost || 0))}</td>
+                                <td className="px-3 py-2.5 max-w-xs truncate align-top border-r border-gray-200 text-gray-700" title={formatLocality(s)}>{formatLocality(s)}</td>
+                                <td className="px-3 py-2.5 max-w-xs truncate align-top border-r border-gray-200" title={s.latlong || "-"}>
                                   {s.latlong ? (
                                     formatLatlongUrl(s.latlong) ? (
                                       <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1899,37 +2012,41 @@ export default function AdminDashboard({
                                     )
                                   ) : "-"}
                                 </td>
-                                <td className="p-2 text-center align-top">{s.priority}</td>
-                                <td className="p-2 align-top">
+                                <td className="px-3 py-2.5 text-center align-top border-r border-gray-200">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-semibold text-xs">
+                                    {s.priority}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                   {s.workImage ? (
                                     <img 
                                       src={getFileUrl(s.workImage)} 
                                       alt="Work" 
-                                      className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-300"
+                                      className="w-16 h-16 object-cover rounded-md cursor-pointer hover:opacity-80 border border-gray-300 shadow-sm"
                                       onClick={() => setZoomedImage(getFileUrl(s.workImage))}
                                     />
                                   ) : (<span className="text-gray-400 text-xs">No image</span>)}
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                   <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                   <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                   <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
-                                <td className="p-2 align-top">
+                                <td className="px-3 py-2.5 align-top border-r border-gray-200">
                                   {s.status === "Pending Review" ? (
-                                    <span className="text-yellow-600">Pending Review</span>
+                                    <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">Pending Review</span>
                                   ) : s.status === "Approved" ? (
-                                    <span className="text-green-600">Approved</span>
+                                    <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>
                                   ) : s.status === "CDMA Approved" ? (
-                                    <span className="text-green-600">CDMA Approved</span>
+                                    <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">CDMA Approved</span>
                                   ) : s.status === "Rejected" ? (
-                                    <span className="text-red-600">Rejected</span>
+                                    <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">Rejected</span>
                                   ) : (
-                                    <span className="text-blue-600">{s.status}</span>
+                                    <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">{s.status}</span>
                                   )}
                                 </td>
                               </tr>
@@ -1939,15 +2056,15 @@ export default function AdminDashboard({
                       } else {
                         // For other views, show serial number for every row
                         return filteredList.map((s, i) => (
-                          <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="p-2">{i + 1}</td>
-                            <td className="p-2">{s.crNumber || "-"}</td>
-                            <td className="p-2">{s.crDate || "-"}</td>
-                            <td className="p-2">{s.sector}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                            <td className="p-2 text-right">{fmtINR(Math.round(s.cost || 0))}</td>
-                            <td className="p-2 max-w-xs truncate" title={formatLocality(s)}>{formatLocality(s)}</td>
-                            <td className="p-2 max-w-xs truncate" title={s.latlong || "-"}>
+                          <tr key={s.id} className="border-b border-gray-200 hover:bg-blue-50 transition-colors">
+                            <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700"><span className="font-medium">{i + 1}</span></td>
+                            <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700">{s.crNumber || <span className="text-gray-400">-</span>}</td>
+                            <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700">{s.crDate || <span className="text-gray-400">-</span>}</td>
+                            <td className="px-3 py-2.5 border-r border-gray-200 text-gray-700"><span className="font-medium">{s.sector}</span></td>
+                            <td className="px-3 py-2.5 max-w-xs truncate border-r border-gray-200 text-gray-700" title={s.proposal}>{s.proposal}</td>
+                            <td className="px-3 py-2.5 text-right border-r border-gray-200 text-gray-700 font-medium">{fmtINR(Math.round(s.cost || 0))}</td>
+                            <td className="px-3 py-2.5 max-w-xs truncate border-r border-gray-200 text-gray-700" title={formatLocality(s)}>{formatLocality(s)}</td>
+                            <td className="px-3 py-2.5 max-w-xs truncate border-r border-gray-200" title={s.latlong || "-"}>
                               {s.latlong ? (
                                 formatLatlongUrl(s.latlong) ? (
                                   <a href={formatLatlongUrl(s.latlong)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -1958,46 +2075,50 @@ export default function AdminDashboard({
                                 )
                               ) : "-"}
                             </td>
-                            <td className="p-2 text-center">{s.priority}</td>
-                            <td className="p-2">
+                            <td className="px-3 py-2.5 text-center border-r border-gray-200">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-semibold text-xs">
+                                {s.priority}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 border-r border-gray-200">
                               {s.workImage ? (
                                 <img 
                                   src={getFileUrl(s.workImage)} 
                                   alt="Work" 
-                                  className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 border border-gray-300"
+                                  className="w-16 h-16 object-cover rounded-md cursor-pointer hover:opacity-80 border border-gray-300 shadow-sm"
                                   onClick={() => setZoomedImage(getFileUrl(s.workImage))}
                                 />
                               ) : (<span className="text-gray-400 text-xs">No image</span>)}
                             </td>
-                            <td className="p-2">
+                            <td className="px-3 py-2.5 border-r border-gray-200">
                               <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="px-3 py-2.5 border-r border-gray-200">
                               <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="px-3 py-2.5 border-r border-gray-200">
                               <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                             </td>
-                            <td className="p-2">
+                            <td className="px-3 py-2.5 border-r border-gray-200">
                               {s.status === "Pending Review" ? (
-                                <span className="text-yellow-600">Pending Review</span>
+                                <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">Pending Review</span>
                               ) : s.status === "Approved" ? (
-                                <span className="text-green-600">Approved</span>
+                                <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>
                               ) : s.status === "CDMA Approved" ? (
-                                <span className="text-green-600">CDMA Approved</span>
+                                <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">CDMA Approved</span>
                               ) : s.status === "Rejected" ? (
-                                <span className="text-red-600">Rejected by Commissioner</span>
+                                <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">Rejected</span>
                               ) : (
-                                <span className="text-blue-600">{s.status}</span>
+                                <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">{s.status}</span>
                               )}
                             </td>
                             {selectedView === "forwarded" && (
-                              <td className="p-2 text-xs text-gray-600">
-                                {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "-"}
+                              <td className="px-3 py-2.5 text-xs text-gray-600 border-r border-gray-200">
+                                {s.forwardedDate ? new Date(s.forwardedDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : <span className="text-gray-400">-</span>}
                               </td>
                             )}
                             {selectedView === "rejected" && (
-                              <td className="p-2 text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                              <td className="px-3 py-2.5 text-gray-600 max-w-xs truncate border-r border-gray-200" title={s.remarks || "-"}>{s.remarks || <span className="text-gray-400">-</span>}</td>
                             )}
                           </tr>
                         ));
@@ -2012,6 +2133,55 @@ export default function AdminDashboard({
           </div>
         </div>
       </div>
+      
+      {/* Custom Alert/Confirm Modal */}
+      {alertModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" onClick={alertModal.type === "alert" ? handleModalConfirm : undefined}>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                {alertModal.type === "alert" ? (
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                )}
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {alertModal.type === "alert" ? "Alert" : "Confirm"}
+                </h3>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">{alertModal.message}</p>
+              <div className="flex justify-end gap-3">
+                {alertModal.type === "confirm" && (
+                  <button
+                    onClick={handleModalCancel}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  onClick={handleModalConfirm}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
+                    alertModal.type === "alert" 
+                      ? "bg-blue-600 hover:bg-blue-700" 
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {alertModal.type === "alert" ? "OK" : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
