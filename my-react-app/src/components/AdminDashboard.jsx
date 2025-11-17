@@ -1104,12 +1104,18 @@ export default function AdminDashboard({
                     <div>
                       <label className="block text-sm text-gray-600">Number of Works <span className="text-red-500">*</span></label>
                       <input
-                        type="number"
-                        min="1"
+                        type="text"
                         value={numberOfWorks}
-                        onChange={(e) => setNumberOfWorks(e.target.value)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow numbers
+                          if (value === '' || /^\d+$/.test(value)) {
+                            setNumberOfWorks(value);
+                          }
+                        }}
                         disabled={disableCRFields}
                         className={`mt-1 w-full border p-2 rounded ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : ""}`}
+                        placeholder="Enter number"
                       />
                       {activeCR && (
                         <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
@@ -1239,23 +1245,25 @@ export default function AdminDashboard({
                     </span>
                   </div>
                   <input
-                    type="number"
+                    type="text"
                     value={estimatedCost}
                     onChange={(e) => {
                       const value = e.target.value;
-                      const numValue = Number(value) || 0;
-                      const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
-                      const remainingForCR = remainingBudget - currentCRTotal;
-                      
-                      setEstimatedCost(value);
-                      
-                      if (numValue > remainingForCR) {
-                        setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
-                      } else {
-                        setCostError('');
+                      // Only allow numbers
+                      if (value === '' || /^\d+$/.test(value)) {
+                        const numValue = Number(value) || 0;
+                        const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
+                        const remainingForCR = remainingBudget - currentCRTotal;
+                        
+                        setEstimatedCost(value);
+                        
+                        if (numValue > remainingForCR) {
+                          setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
+                        } else {
+                          setCostError('');
+                        }
                       }
                     }}
-                    min="0"
                     className={`mt-1 w-full border p-2 rounded ${costError ? 'border-red-500' : ''}`}
                     placeholder="Enter amount"
                   />
@@ -1264,7 +1272,19 @@ export default function AdminDashboard({
 
                 <div>
                   <label className="block text-sm text-gray-600">Prioritization <span className="text-red-500">*</span></label>
-                  <input type="number" value={prioritization} onChange={(e) => setPrioritization(e.target.value)} className="mt-1 w-full border p-2 rounded" />
+                  <input 
+                    type="text" 
+                    value={prioritization} 
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Only allow numbers
+                      if (value === '' || /^\d+$/.test(value)) {
+                        setPrioritization(value);
+                      }
+                    }} 
+                    className="mt-1 w-full border p-2 rounded" 
+                    placeholder="Enter priority number"
+                  />
                 </div>
 
                 <div>
