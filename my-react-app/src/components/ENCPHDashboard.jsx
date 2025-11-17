@@ -849,27 +849,32 @@ export default function ENCPHDashboard({
                 <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
                 
                 <div className="overflow-auto max-h-80">
-                  <table className="min-w-full text-sm border-collapse">
-                    <thead className="bg-gray-100 border-b">
+                  <table className="min-w-full text-sm border-collapse border border-gray-300">
+                    <thead className="bg-gray-100 border-b border-gray-300">
                       <tr>
                         <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
                         <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>CR Number</span>
-                            <button
-                              onClick={() => toggleFilter('crNumber')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by CR Number"
-                            >
-                              🔍
-                            </button>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>CR Number</span>
+                              <button
+                                onClick={() => toggleFilter('crNumber')}
+                                className="text-xs"
+                                title="Filter by CR Number"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.crNumber && (
                               <input
                                 type="text"
                                 value={filters.crNumber}
                                 onChange={(e) => setFilters({ ...filters, crNumber: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -881,10 +886,13 @@ export default function ENCPHDashboard({
                             <span>CR Date</span>
                             <button
                               onClick={() => toggleFilter('crDate')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by CR Date"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.crDate && (
                               <input
@@ -892,7 +900,7 @@ export default function ENCPHDashboard({
                                 value={filters.crDate}
                                 onChange={(e) => setFilters({ ...filters, crDate: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -904,17 +912,20 @@ export default function ENCPHDashboard({
                             <span>Sector</span>
                             <button
                               onClick={() => toggleFilter('sector')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Sector"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.sector && (
                               <select
                                 value={filters.sector}
                                 onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-24 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 autoFocus
                               >
                                 <option value="">All</option>
@@ -930,10 +941,13 @@ export default function ENCPHDashboard({
                             <span>Proposal</span>
                             <button
                               onClick={() => toggleFilter('proposal')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Proposal"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.proposal && (
                               <input
@@ -941,7 +955,7 @@ export default function ENCPHDashboard({
                                 value={filters.proposal}
                                 onChange={(e) => setFilters({ ...filters, proposal: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -953,10 +967,13 @@ export default function ENCPHDashboard({
                             <span>Cost</span>
                             <button
                               onClick={() => toggleFilter('cost')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Cost"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.cost && (
                               <input
@@ -964,7 +981,7 @@ export default function ENCPHDashboard({
                                 value={filters.cost}
                                 onChange={(e) => setFilters({ ...filters, cost: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -976,10 +993,13 @@ export default function ENCPHDashboard({
                             <span>Locality</span>
                             <button
                               onClick={() => toggleFilter('locality')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Locality"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.locality && (
                               <input
@@ -987,7 +1007,7 @@ export default function ENCPHDashboard({
                                 value={filters.locality}
                                 onChange={(e) => setFilters({ ...filters, locality: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -999,10 +1019,13 @@ export default function ENCPHDashboard({
                             <span>Lat/Long</span>
                             <button
                               onClick={() => toggleFilter('latLong')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Lat/Long"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.latLong && (
                               <input
@@ -1010,7 +1033,7 @@ export default function ENCPHDashboard({
                                 value={filters.latLong}
                                 onChange={(e) => setFilters({ ...filters, latLong: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -1022,10 +1045,13 @@ export default function ENCPHDashboard({
                             <span>Priority</span>
                             <button
                               onClick={() => toggleFilter('priority')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Priority"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.priority && (
                               <input
@@ -1033,7 +1059,7 @@ export default function ENCPHDashboard({
                                 value={filters.priority}
                                 onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
@@ -1049,17 +1075,20 @@ export default function ENCPHDashboard({
                             <span>Status</span>
                             <button
                               onClick={() => toggleFilter('status')}
-                              className="text-xs hover:text-blue-600"
+                              className="text-xs "
                               title="Filter by Status"
                             >
-                              🔍
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
                             </button>
                             {activeFilters.status && (
                               <select
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-24 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 autoFocus
                               >
                                 <option value="">All</option>

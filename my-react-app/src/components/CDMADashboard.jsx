@@ -738,72 +738,87 @@ export default function CDMADashboard({
                 <h3 className="text-sm text-gray-600 mb-4">{viewTitle}</h3>
                 
                 <div className="overflow-auto max-h-80">
-                  <table className="min-w-full text-sm border-collapse">
-                    <thead className="bg-gray-100 border-b">
+                  <table className="min-w-full text-sm border-collapse border border-gray-300">
+                    <thead className="bg-gray-100 border-b border-gray-300">
                       <tr>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>CR Number</span>
-                            <button
-                              onClick={() => toggleFilter('crNumber')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by CR Number"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">S.No</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>CR Number</span>
+                              <button
+                                onClick={() => toggleFilter('crNumber')}
+                                className="text-xs"
+                                title="Filter by CR Number"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.crNumber && (
                               <input
                                 type="text"
                                 value={filters.crNumber}
                                 onChange={(e) => setFilters({ ...filters, crNumber: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>CR Date</span>
-                            <button
-                              onClick={() => toggleFilter('crDate')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by CR Date"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>CR Date</span>
+                              <button
+                                onClick={() => toggleFilter('crDate')}
+                                className="text-xs"
+                                title="Filter by CR Date"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.crDate && (
                               <input
                                 type="text"
                                 value={filters.crDate}
                                 onChange={(e) => setFilters({ ...filters, crDate: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Sector</span>
-                            <button
-                              onClick={() => toggleFilter('sector')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Sector"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Sector</span>
+                              <button
+                                onClick={() => toggleFilter('sector')}
+                                className="text-xs"
+                                title="Filter by Sector"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.sector && (
                               <select
                                 value={filters.sector}
                                 onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-24 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 autoFocus
                               >
                                 <option value="">All</option>
@@ -814,141 +829,183 @@ export default function CDMADashboard({
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Proposal</span>
-                            <button
-                              onClick={() => toggleFilter('proposal')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Proposal"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Proposal</span>
+                              <button
+                                onClick={() => toggleFilter('proposal')}
+                                className="text-xs"
+                                title="Filter by Proposal"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.proposal && (
                               <input
                                 type="text"
                                 value={filters.proposal}
                                 onChange={(e) => setFilters({ ...filters, proposal: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Cost</span>
-                            <button
-                              onClick={() => toggleFilter('cost')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Cost"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Cost</span>
+                              <button
+                                onClick={() => toggleFilter('cost')}
+                                className="text-xs"
+                                title="Filter by Cost"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.cost && (
                               <input
                                 type="text"
                                 value={filters.cost}
                                 onChange={(e) => setFilters({ ...filters, cost: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Locality</span>
-                            <button
-                              onClick={() => toggleFilter('locality')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Locality"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Locality</span>
+                              <button
+                                onClick={() => toggleFilter('locality')}
+                                className="text-xs"
+                                title="Filter by Locality"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.locality && (
                               <input
                                 type="text"
                                 value={filters.locality}
                                 onChange={(e) => setFilters({ ...filters, locality: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Lat/Long</span>
-                            <button
-                              onClick={() => toggleFilter('latLong')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Lat/Long"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Lat/Long</span>
+                              <button
+                                onClick={() => toggleFilter('latLong')}
+                                className="text-xs"
+                                title="Filter by Lat/Long"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.latLong && (
                               <input
                                 type="text"
                                 value={filters.latLong}
                                 onChange={(e) => setFilters({ ...filters, latLong: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Priority</span>
-                            <button
-                              onClick={() => toggleFilter('priority')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Priority"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Priority</span>
+                              <button
+                                onClick={() => toggleFilter('priority')}
+                                className="text-xs"
+                                title="Filter by Priority"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                            </div>
                             {activeFilters.priority && (
                               <input
                                 type="text"
                                 value={filters.priority}
                                 onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-20 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 placeholder="Search..."
                                 autoFocus
                               />
                             )}
                           </div>
                         </th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
-                        <th className="p-2 text-left whitespace-nowrap text-xs">
-                          <div className="flex items-center gap-1">
-                            <span>Status</span>
-                            <button
-                              onClick={() => toggleFilter('status')}
-                              className="text-xs hover:text-blue-600"
-                              title="Filter by Status"
-                            >
-                              🔍
-                            </button>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Work Image</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Estimation Report</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Committee Report</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Council Resolution</th>
+                        <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <span>Status</span>
+                              <button
+                                onClick={() => toggleFilter('status')}
+                                className="text-xs"
+                                title="Filter by Status"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="11" cy="11" r="8"></circle>
+                                  <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                              </button>
+                              {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
+                                <button
+                                  onClick={() => {
+                                    setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
+                                    setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
+                                  }}
+                                  className="text-xs text-blue-600 hover:text-blue-800 px-1"
+                                  title="Clear Filters"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
                             {activeFilters.status && (
                               <select
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-24 border p-0.5 rounded text-xs ml-1"
+                                className="w-full border p-0.5 rounded text-xs"
                                 autoFocus
                               >
                                 <option value="">All</option>
@@ -957,21 +1014,9 @@ export default function CDMADashboard({
                                 ))}
                               </select>
                             )}
-                            {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
-                              <button
-                                onClick={() => {
-                                  setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
-                                  setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
-                                }}
-                                className="text-xs text-blue-600 hover:text-blue-800 px-1 ml-1"
-                                title="Clear Filters"
-                              >
-                                ✕
-                              </button>
-                            )}
                           </div>
                         </th>
-                          {selectedView === "pending" && <th className="p-2 text-left text-xs">Actions</th>}
+                          {selectedView === "pending" && <th className="p-2 text-left text-xs border-r border-gray-300">Actions</th>}
                           {(selectedView === "rejected") && <th className="p-2 text-left text-xs">Remarks</th>}
                         </tr>
                       </thead>
@@ -982,7 +1027,7 @@ export default function CDMADashboard({
                             const columnCount = selectedView === "pending" ? 16 : selectedView === "rejected" ? 16 : 15;
                             return (
                               <tr>
-                                <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                                <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
                                   No results found. Please try different search criteria.
                                 </td>
                               </tr>
@@ -1011,11 +1056,11 @@ export default function CDMADashboard({
                             if (crGroups.length === 0) {
                               const columnCount = selectedView === "pending" ? 16 : selectedView === "rejected" ? 16 : 15;
                               return (
-                                <tr>
-                                  <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
-                                    No results found. Please try different search criteria.
-                                  </td>
-                                </tr>
+                              <tr>
+                                <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
+                                  No results found. Please try different search criteria.
+                                </td>
+                              </tr>
                               );
                             }
                             
@@ -1026,33 +1071,33 @@ export default function CDMADashboard({
                                 const isFirstInGroup = idxInGroup === 0;
                                 if (isFirstInGroup) globalSerial++;
                                 return (
-                                  <tr key={s.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? globalSerial : ""}</td>
-                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
-                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
-                                    <td className="p-2 text-xs align-top">{isFirstInGroup ? s.sector : ""}</td>
-                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
-                                    <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
-                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
-                                    <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                                  <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{isFirstInGroup ? globalSerial : ""}</td>
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{isFirstInGroup ? (s.crNumber || "-") : ""}</td>
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{isFirstInGroup ? (s.crDate || "-") : ""}</td>
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{isFirstInGroup ? s.sector : ""}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{fmtINR(s.cost)}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.locality}>{s.locality}</td>
+                                    <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.latlong || "-"}>
                                       {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
                                     </td>
-                                    <td className="p-2 text-xs align-top">{s.priority}</td>
-                                    <td className="p-2 text-xs align-top">
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{s.priority}</td>
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">
                                     <FilePreview file={s.workImage} defaultName="work-image.jpg" />
                                     </td>
-                                    <td className="p-2 text-xs align-top">
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">
                                       {s.detailedReport ? (
                                         <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                       ) : null}
                                     </td>
-                                    <td className="p-2 text-xs align-top">
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">
                                       <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                                     </td>
-                                    <td className="p-2 text-xs align-top">
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">
                                       <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                     </td>
-                                    <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                                    <td className="p-2 text-xs align-top border-r border-gray-300">{s.status || "Pending"}</td>
                                   </tr>
                                 );
                               });
@@ -1060,67 +1105,67 @@ export default function CDMADashboard({
                           } else if (selectedView === "allWorks") {
                             // For allWorks view, show serial number for every row
                             return filteredList.map((s, i) => (
-                              <tr key={s.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 text-xs align-top">{i + 1}</td>
-                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
-                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
-                                <td className="p-2 text-xs align-top">{s.sector}</td>
-                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
-                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
-                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
-                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                              <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{i + 1}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.latlong || "-"}>
                                   {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
                                 </td>
-                                <td className="p-2 text-xs align-top">{s.priority}</td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.priority}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                     <FilePreview file={s.workImage} defaultName="work-image.jpg" />
                                 </td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                   {s.detailedReport ? (
                                     <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : (<span className="text-gray-400">No report</span>)}
                                 </td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                   <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                                 </td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                   <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
-                                <td className="p-2 text-xs align-top">{s.status || "Pending"}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.status || "Pending"}</td>
                               </tr>
                             ));
                           } else {
                             // For other views (pending, approved, rejected), show serial number for every row
                             return filteredList.map((s, i) => (
-                              <tr key={s.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2 text-xs align-top">{i + 1}</td>
-                                <td className="p-2 text-xs align-top">{s.crNumber || "-"}</td>
-                                <td className="p-2 text-xs align-top">{s.crDate || "-"}</td>
-                                <td className="p-2 text-xs align-top">{s.sector}</td>
-                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.proposal}>{s.proposal}</td>
-                                <td className="p-2 text-xs align-top">{fmtINR(s.cost)}</td>
-                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.locality}>{s.locality}</td>
-                                <td className="p-2 text-xs max-w-xs truncate align-top" title={s.latlong || "-"}>
+                              <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{i + 1}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.crNumber || "-"}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.crDate || "-"}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.sector}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{fmtINR(s.cost)}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.locality}>{s.locality}</td>
+                                <td className="p-2 text-xs max-w-xs truncate align-top border-r border-gray-300" title={s.latlong || "-"}>
                                   {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
                                 </td>
-                                <td className="p-2 text-xs align-top">{s.priority}</td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.priority}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                     <FilePreview file={s.workImage} defaultName="work-image.jpg" />
                                 </td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                   {s.detailedReport ? (
                                     <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                                   ) : (<span className="text-gray-400">No report</span>)}
                                 </td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                   <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                                 </td>
-                                <td className="p-2 text-xs align-top">
+                                <td className="p-2 text-xs align-top border-r border-gray-300">
                                   <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                                 </td>
-                                <td className="p-2 text-xs align-top">{s.status || "Forwarded from ENCPH"}</td>
+                                <td className="p-2 text-xs align-top border-r border-gray-300">{s.status || "Forwarded from ENCPH"}</td>
                                 {selectedView === "pending" && (
-                                  <td className="p-2 align-top">
+                                  <td className="p-2 align-top border-r border-gray-300">
                                     <div className="flex gap-2">
                                       <button
                                         onClick={() => openPreview(s)}
@@ -1154,7 +1199,7 @@ export default function CDMADashboard({
                                   </td>
                                 )}
                                 {selectedView === "rejected" && (
-                                  <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                                  <td className="p-2 text-xs text-gray-600 max-w-xs truncate align-top border-r border-gray-300" title={s.remarks || "-"}>{s.remarks || "-"}</td>
                                 )}
                               </tr>
                             ));
@@ -1290,56 +1335,56 @@ export default function CDMADashboard({
             <div className="mt-6">
               <h4 className="font-semibold mb-2 text-sm">Rejected by CDMA</h4>
               <div className="overflow-auto max-h-48">
-               <table className="min-w-full text-sm border-collapse">
-                  <thead className="bg-gray-100 border-b">
+               <table className="min-w-full text-sm border-collapse border border-gray-300">
+                  <thead className="bg-gray-100 border-b border-gray-300">
                     <tr>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">S.No</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Number</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">CR Date</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Sector</th>
-                      <th className="p-2 text-left text-xs">Proposal</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Cost</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Locality</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Lat/Long</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Priority</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Work Image</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Estimation Report</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Committee Report</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Council Resolution</th>
-                      <th className="p-2 text-left whitespace-nowrap text-xs">Status</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">S.No</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">CR Number</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">CR Date</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Sector</th>
+                      <th className="p-2 text-left text-xs border-r border-gray-300">Proposal</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Cost</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Locality</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Lat/Long</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Priority</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Work Image</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Estimation Report</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Committee Report</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Council Resolution</th>
+                      <th className="p-2 text-left whitespace-nowrap text-xs border-r border-gray-300">Status</th>
                       <th className="p-2 text-left text-xs">Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rejectedList.map((s, i) => (
-                      <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2 text-xs">{i + 1}</td>
-                        <td className="p-2 text-xs">{s.crNumber || "-"}</td>
-                        <td className="p-2 text-xs">{s.crDate || "-"}</td>
-                        <td className="p-2 text-xs">{s.sector}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.proposal}>{s.proposal}</td>
-                        <td className="p-2 text-xs">{fmtINR(s.cost)}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.locality}>{s.locality}</td>
-                        <td className="p-2 text-xs max-w-xs truncate" title={s.latlong || "-"}>
+                      <tr key={s.id} className="border-b border-gray-300 hover:bg-gray-50">
+                        <td className="p-2 text-xs border-r border-gray-300">{i + 1}</td>
+                        <td className="p-2 text-xs border-r border-gray-300">{s.crNumber || "-"}</td>
+                        <td className="p-2 text-xs border-r border-gray-300">{s.crDate || "-"}</td>
+                        <td className="p-2 text-xs border-r border-gray-300">{s.sector}</td>
+                        <td className="p-2 text-xs max-w-xs truncate border-r border-gray-300" title={s.proposal}>{s.proposal}</td>
+                        <td className="p-2 text-xs border-r border-gray-300">{fmtINR(s.cost)}</td>
+                        <td className="p-2 text-xs max-w-xs truncate border-r border-gray-300" title={s.locality}>{s.locality}</td>
+                        <td className="p-2 text-xs max-w-xs truncate border-r border-gray-300" title={s.latlong || "-"}>
                           {s.latlong ? (s.latlong.length > 20 ? s.latlong.substring(0, 20) + "..." : s.latlong) : "-"}
                         </td>
-                        <td className="p-2 text-xs">{s.priority}</td>
-                        <td className="p-2 text-xs">
+                        <td className="p-2 text-xs border-r border-gray-300">{s.priority}</td>
+                        <td className="p-2 text-xs border-r border-gray-300">
                                     <FilePreview file={s.workImage} defaultName="work-image.jpg" />
                         </td>
-                        <td className="p-2 text-xs">
+                        <td className="p-2 text-xs border-r border-gray-300">
                           {s.detailedReport ? (
                             <FilePreview file={s.detailedReport} defaultName="estimation-report.pdf" />
                           ) : null}
                         </td>
-                        <td className="p-2 text-xs align-top">
+                        <td className="p-2 text-xs align-top border-r border-gray-300">
                           <FilePreview file={s.committeeReport} defaultName="committee-report.pdf" />
                         </td>
-                        <td className="p-2 text-xs align-top">
+                        <td className="p-2 text-xs align-top border-r border-gray-300">
                           <FilePreview file={s.councilResolution} defaultName="council-resolution.pdf" />
                         </td>
-                        <td className="p-2 text-xs text-red-700">Rejected by CDMA</td>
-                        <td className="p-2 text-xs text-gray-600 max-w-xs truncate" title={s.remarks || "-"}>{s.remarks || "-"}</td>
+                        <td className="p-2 text-xs text-red-700 border-r border-gray-300">Rejected by CDMA</td>
+                        <td className="p-2 text-xs text-gray-600 max-w-xs truncate">{s.remarks || "-"}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -2,6 +2,8 @@ import Header from "./Header";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import SidebarMenu from "./SidebarMenu";
 import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
+import CustomAlert from "./CustomAlert";
+import CustomConfirm from "./CustomConfirm";
 
 const TOTAL_BUDGET = 1000000;
 const fmtINR = (n) =>
@@ -188,6 +190,20 @@ export default function AdminDashboard({
   const navigate = useNavigate();
   const routerLocation = useRouterLocation();
 
+  // Custom alert and confirm state - defined early so functions can use them
+  const [alert, setAlert] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+
+  // Helper functions for alerts - wrapped in useCallback for stability
+  // Defined early so they can be used in useEffect hooks
+  const showAlert = useCallback((message, type = 'info') => {
+    setAlert({ message, type });
+  }, []);
+
+  const showConfirm = useCallback((message, onConfirm, title = 'Confirm') => {
+    setConfirm({ message, onConfirm, title });
+  }, []);
+
   // Always add dummy entry upon entering dashboard route
   useEffect(() => {
     if (routerLocation.pathname !== "/") {
@@ -195,6 +211,45 @@ export default function AdminDashboard({
     }
   }, [routerLocation.pathname]);
 
+  // Intercept back navigation reliably
+  useEffect(() => {
+    const handler = (event) => {
+      if (routerLocation.pathname !== "/") {
+        event.preventDefault();
+        window.history.pushState(null, "", window.location.pathname);
+        showConfirm(
+          "Are you sure you want to logout?",
+          () => {
+            logout();
+            navigate("/", { replace: true });
+          },
+          "Logout"
+        );
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [routerLocation.pathname, logout, navigate, showConfirm]);
+
+  // Extra: Intercept navigation to '/' with a prompt, not just popstate
+  useEffect(() => {
+    if (
+      routerLocation.pathname === "/" &&
+      window.history.state &&
+      // Only if we are not forced by code (navigate or redirect)
+      document.referrer && !document.referrer.includes("/login")
+    ) {
+      // Block navigation by pushing back to the last dashboard route
+      window.history.go(1);
+      showConfirm(
+        "Are you sure you want to logout?",
+        () => {
+          logout();
+        },
+        "Logout"
+      );
+    }
+  }, [routerLocation.pathname, logout, showConfirm]);
   // filter selection state
   const [selection, setSelection] = useState({
     year: "",
@@ -219,80 +274,6 @@ export default function AdminDashboard({
   const [crNumber, setCrNumber] = useState("");
   const [crDate, setCrDate] = useState("");
   const [numberOfWorks, setNumberOfWorks] = useState("");
-  
-  // Custom alert/confirm modal state
-  const [alertModal, setAlertModal] = useState({ show: false, message: "", type: "alert" }); // type: "alert" or "confirm"
-  const [confirmCallback, setConfirmCallback] = useState(null);
-  
-  // Custom alert function
-  const showAlert = useCallback((message) => {
-    setAlertModal({ show: true, message, type: "alert" });
-  }, []);
-  
-  // Custom confirm function (returns a promise)
-  const showConfirm = useCallback((message) => {
-    return new Promise((resolve) => {
-      setAlertModal({ show: true, message, type: "confirm" });
-      setConfirmCallback(() => (confirmed) => {
-        setAlertModal({ show: false, message: "", type: "alert" });
-        setConfirmCallback(null);
-        resolve(confirmed);
-      });
-    });
-  }, []);
-  
-  const handleModalConfirm = () => {
-    if (confirmCallback) {
-      confirmCallback(true);
-    } else {
-      setAlertModal({ show: false, message: "", type: "alert" });
-    }
-  };
-  
-  const handleModalCancel = () => {
-    if (confirmCallback) {
-      confirmCallback(false);
-    } else {
-      setAlertModal({ show: false, message: "", type: "alert" });
-    }
-  };
-
-  // Intercept back navigation reliably
-  useEffect(() => {
-    const handler = (event) => {
-      if (routerLocation.pathname !== "/") {
-        showConfirm("Are you sure you want to logout?").then((confirmed) => {
-          if (confirmed) {
-            logout();
-            navigate("/", { replace: true });
-          } else {
-            window.history.pushState(null, "", window.location.pathname);
-          }
-        });
-      }
-    };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, [routerLocation.pathname, logout, navigate, showConfirm]);
-
-  // Extra: Intercept navigation to '/' with a prompt, not just popstate
-  useEffect(() => {
-    if (
-      routerLocation.pathname === "/" &&
-      window.history.state &&
-      // Only if we are not forced by code (navigate or redirect)
-      document.referrer && !document.referrer.includes("/login")
-    ) {
-      showConfirm("Are you sure you want to logout?").then((confirmed) => {
-        if (!confirmed) {
-          // Block navigation by pushing back to the last dashboard route (customize as needed)
-          window.history.go(1);
-        } else {
-          logout();
-        }
-      });
-    }
-  }, [routerLocation.pathname, logout, showConfirm]);
 
   // files
   const [workImage, setWorkImage] = useState(null);
@@ -303,8 +284,6 @@ export default function AdminDashboard({
   // Refs for file inputs to reset them
   const workImageInputRef = useRef(null);
   const detailedReportInputRef = useRef(null);
-  const committeeFileInputRef = useRef(null);
-  const councilFileInputRef = useRef(null);
 
   // local admin submissions (not forwarded yet)
   const [submissions, setSubmissions] = useState([]);
@@ -432,8 +411,9 @@ export default function AdminDashboard({
 
   // Clear/Cancel entire application - resets everything including selections
   function handleClearApplication() {
-    showConfirm("Are you sure you want to clear the entire application? This will reset all fields and selections.").then((confirmed) => {
-      if (confirmed) {
+    showConfirm(
+      "Are you sure you want to clear the entire application? This will reset all fields and selections.",
+      () => {
         // Clear all selections
         setSelection({ year: "", installment: "", grantType: "", program: "" });
         // Clear all form fields
@@ -459,8 +439,9 @@ export default function AdminDashboard({
         setIsEditing(false);
         // Reset file input elements
         setFileInputKey(prev => prev + 1);
-      }
-    });
+      },
+      "Clear Application"
+    );
   }
 
   // When submitting a proposal
@@ -782,15 +763,15 @@ export default function AdminDashboard({
     const totalSubmissions = submissions.length + (isEditing ? 1 : 0);
     
     if (!Number.isInteger(reqCount) || reqCount < 1) {
-      showAlert("Please enter valid Number of Works (>=1).");
+      showAlert("Please enter valid Number of Works (>=1).", "error");
       return;
     }
     if (totalSubmissions < reqCount) {
-      showAlert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
+      showAlert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`, "error");
       return;
     }
     if (!committeeFile || !councilFile) {
-      showAlert("Please upload committee and council files before forwarding.");
+      showAlert("Please upload committee and council files before forwarding.", "error");
       return;
     }
   
@@ -868,7 +849,7 @@ export default function AdminDashboard({
     setIsEditing(false); // Clear editing state after forwarding
     
     // Show alert
-    showAlert("Forwarded successfully!");
+    showAlert("Forwarded successfully!", "success");
     
     // Set banner message
     setSuccessMsg("Forwarded to Commissioner!");
@@ -924,12 +905,14 @@ export default function AdminDashboard({
           title="15th Finance Commission"
           user={user}
           onLogout={() => {
-            showConfirm("Are you sure you want to logout?").then((confirmed) => {
-              if (confirmed) {
+            showConfirm(
+              "Are you sure you want to logout?",
+              () => {
                 logout();
                 navigate("/");
-              }
-            });
+              },
+              "Logout"
+            );
           }}
         />
       </div>
@@ -1424,12 +1407,42 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Committee Report</label>
-                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="w-full border p-1.5 rounded text-sm" />
+                  <label className="block text-xs text-gray-600 mb-1">Committee Report (.pdf) <span className="text-red-500">*</span></label>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Committee Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setCommitteeFile(null);
+                        return;
+                      }
+                      setCommitteeFile(file);
+                      setFormError(""); // Clear any previous errors
+                    }}
+                    className="w-full border p-1.5 rounded text-sm"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Council Resolution Report</label>
-                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="w-full border p-1.5 rounded text-sm" />
+                  <label className="block text-xs text-gray-600 mb-1">Council Resolution Report (.pdf) <span className="text-red-500">*</span></label>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Council Resolution Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setCouncilFile(null);
+                        return;
+                      }
+                      setCouncilFile(file);
+                      setFormError(""); // Clear any previous errors
+                    }}
+                    className="w-full border p-1.5 rounded text-sm"
+                  />
                 </div>
               </div>
 
@@ -1590,7 +1603,7 @@ export default function AdminDashboard({
                             <select
                               value={filters.sector}
                               onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
-                              className="w-20 border p-0.5 rounded text-xs"
+                              className="w-full border p-0.5 rounded text-xs"
                               title="Filter by Sector"
                             >
                               <option value="">All</option>
@@ -1606,7 +1619,7 @@ export default function AdminDashboard({
                             <span className="text-xs">🔍</span>
                           </div>
                         </th>
-                        <th className="p-2 whitespace-nowrap text-right">Estimated Cost</th>
+                        <th className="px-3 py-2.5 whitespace-nowrap text-right border-r border-gray-300 font-semibold text-gray-700">Estimated Cost</th>
                         <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">
                           <div className="flex items-center gap-1">
                             <span>Locality</span>
@@ -1625,7 +1638,7 @@ export default function AdminDashboard({
                             <select
                               value={filters.status}
                               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                              className="w-20 border p-0.5 rounded text-xs"
+                              className="w-full border p-0.5 rounded text-xs"
                               title="Filter by Status"
                             >
                               <option value="">All</option>
@@ -1633,15 +1646,6 @@ export default function AdminDashboard({
                                 <option key={status} value={status}>{status}</option>
                               ))}
                             </select>
-                            {(filters.sector || filters.status) && (
-                              <button
-                                onClick={() => setFilters({ crNumber: "", sector: "", status: "", proposal: "", locality: "" })}
-                                className="text-xs text-blue-600 hover:text-blue-800 px-1"
-                                title="Clear Filters"
-                              >
-                                ✕
-                              </button>
-                            )}
                           </div>
                         </th>
                         <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Remarks</th>
@@ -1725,7 +1729,7 @@ export default function AdminDashboard({
                               value={filters.crNumber}
                               onChange={(e) => setFilters({ ...filters, crNumber: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
@@ -1748,7 +1752,7 @@ export default function AdminDashboard({
                               value={filters.crDate}
                               onChange={(e) => setFilters({ ...filters, crDate: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
@@ -1770,7 +1774,7 @@ export default function AdminDashboard({
                               value={filters.sector}
                               onChange={(e) => setFilters({ ...filters, sector: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-24 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               autoFocus
                             >
                               <option value="">All</option>
@@ -1797,14 +1801,14 @@ export default function AdminDashboard({
                               value={filters.proposal}
                               onChange={(e) => setFilters({ ...filters, proposal: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
                           )}
                         </div>
                       </th>
-                      <th className="p-2 whitespace-nowrap text-right">
+                      <th className="px-3 py-2.5 whitespace-nowrap text-right border-r border-gray-300 font-semibold text-gray-700">
                         <div className="flex items-center gap-1 justify-end">
                           <span>Estimated Cost</span>
                           <button
@@ -1820,7 +1824,7 @@ export default function AdminDashboard({
                               value={filters.cost}
                               onChange={(e) => setFilters({ ...filters, cost: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
@@ -1843,7 +1847,7 @@ export default function AdminDashboard({
                               value={filters.locality}
                               onChange={(e) => setFilters({ ...filters, locality: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
@@ -1866,8 +1870,8 @@ export default function AdminDashboard({
                               value={filters.latLong}
                               onChange={(e) => setFilters({ ...filters, latLong: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
-                              placeholder="Sea7rch..."
+                              className="w-full border p-0.5 rounded text-xs"
+                              placeholder="Search..."
                               autoFocus
                             />
                           )}
@@ -1889,7 +1893,7 @@ export default function AdminDashboard({
                               value={filters.priority}
                               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-20 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               placeholder="Search..."
                               autoFocus
                             />
@@ -1910,12 +1914,24 @@ export default function AdminDashboard({
                           >
                             🔍
                           </button>
+                          {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
+                            <button
+                              onClick={() => {
+                                setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
+                                setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 px-1"
+                              title="Clear Filters"
+                            >
+                              ✕
+                            </button>
+                          )}
                           {activeFilters.status && (
                             <select
                               value={filters.status}
                               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-24 border p-0.5 rounded text-xs ml-1"
+                              className="w-full border p-0.5 rounded text-xs"
                               autoFocus
                             >
                               <option value="">All</option>
@@ -1924,22 +1940,10 @@ export default function AdminDashboard({
                               ))}
                             </select>
                           )}
-                          {(filters.crNumber || filters.crDate || filters.sector || filters.status || filters.proposal || filters.cost || filters.locality || filters.latLong || filters.priority) && (
-                            <button
-                              onClick={() => {
-                                setFilters({ crNumber: "", crDate: "", sector: "", status: "", proposal: "", cost: "", locality: "", latLong: "", priority: "" });
-                                setActiveFilters({ crNumber: false, crDate: false, sector: false, status: false, proposal: false, cost: false, locality: false, latLong: false, priority: false });
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-800 px-1 ml-1"
-                              title="Clear Filters"
-                            >
-                              ✕
-                            </button>
-                          )}
                         </div>
                       </th>
-                      {(selectedView === "forwarded") && <th className="p-2 whitespace-nowrap border-r border-gray-300">Forwarded Date</th>}
-                      {(selectedView === "rejected") && <th className="p-2 whitespace-nowrap border-r border-gray-300">Remarks</th>}
+                      {(selectedView === "forwarded") && <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Forwarded Date</th>}
+                      {(selectedView === "rejected") && <th className="px-3 py-2.5 whitespace-nowrap border-r border-gray-300 font-semibold text-gray-700">Remarks</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1949,7 +1953,7 @@ export default function AdminDashboard({
                         const columnCount = (selectedView === "forwarded" ? 16 : selectedView === "rejected" ? 16 : 15);
                         return (
                           <tr>
-                            <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm">
+                            <td colSpan={columnCount} className="p-8 text-center text-gray-500 text-sm border-r border-gray-300">
                               No results found. Please try different search criteria.
                             </td>
                           </tr>
@@ -2134,53 +2138,26 @@ export default function AdminDashboard({
         </div>
       </div>
       
-      {/* Custom Alert/Confirm Modal */}
-      {alertModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" onClick={alertModal.type === "alert" ? handleModalConfirm : undefined}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                {alertModal.type === "alert" ? (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                )}
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {alertModal.type === "alert" ? "Alert" : "Confirm"}
-                </h3>
-              </div>
-              <p className="text-sm text-gray-600 mb-6">{alertModal.message}</p>
-              <div className="flex justify-end gap-3">
-                {alertModal.type === "confirm" && (
-                  <button
-                    onClick={handleModalCancel}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                )}
-                <button
-                  onClick={handleModalConfirm}
-                  className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
-                    alertModal.type === "alert" 
-                      ? "bg-blue-600 hover:bg-blue-700" 
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                >
-                  {alertModal.type === "alert" ? "OK" : "Confirm"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Custom Alert */}
+      {alert && (
+        <CustomAlert
+          message={alert.message}
+          type={alert.type}
+          onClose={() => setAlert(null)}
+        />
+      )}
+
+      {/* Custom Confirm Dialog */}
+      {confirm && (
+        <CustomConfirm
+          message={confirm.message}
+          title={confirm.title}
+          onConfirm={() => {
+            confirm.onConfirm();
+            setConfirm(null);
+          }}
+          onCancel={() => setConfirm(null)}
+        />
       )}
     </div>
   );
