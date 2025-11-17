@@ -953,13 +953,27 @@ export default function AdminDashboard({
           </div>
         </div>
 
-        {/* selection chips */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {selection.year && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.year}</div>}
-          {selection.installment && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.installment}</div>}
-          {selection.grantType && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.grantType}</div>}
-          {selection.program && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.program}</div>}
-        </div>
+        {/* selection chips with budget */}
+        {isSelectionReady && (
+          <div className="mb-4 bg-gray-50 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2">
+              {selection.year && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.year}</div>}
+              {selection.installment && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.installment}</div>}
+              {selection.grantType && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.grantType}</div>}
+              {selection.program && <div className="px-3 py-1 rounded-full bg-white text-sm font-medium">{selection.program}</div>}
+            </div>
+            <div className="flex flex-wrap gap-6 items-center">
+              <div className="flex flex-col">
+                <div className="text-sm text-gray-600">Budget</div>
+                <div className="font-bold text-lg text-green-600">{fmtINR(TOTAL_BUDGET)}</div>
+              </div>
+              <div className="flex flex-col">
+                <div className="text-sm text-gray-600">Remaining</div>
+                <div className="font-bold text-lg text-red-600">{fmtINR(remainingBudget)}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Create New ADP Heading */}
         <h2 className="text-xl font-bold mb-4 text-gray-800">Create New ADP</h2>
@@ -1096,7 +1110,19 @@ export default function AdminDashboard({
                         value={crDate}
                         onChange={(e) => setCrDate(e.target.value)}
                         disabled={submissions.length > 0}
-                        max={new Date().toISOString().split('T')[0]}
+                        min={selection.year ? (() => {
+                          // Extract starting year from financial year format (e.g., "2022-23" -> "2022")
+                          const startYear = selection.year.split('-')[0];
+                          return `${startYear}-01-01`;
+                        })() : undefined}
+                        max={selection.year ? (() => {
+                          // Extract starting year from financial year format (e.g., "2022-23" -> "2022")
+                          const startYear = selection.year.split('-')[0];
+                          const yearEnd = `${startYear}-12-31`;
+                          const today = new Date().toISOString().split('T')[0];
+                          // Return the earlier of year end or today (to prevent future dates)
+                          return today < yearEnd ? today : yearEnd;
+                        })() : new Date().toISOString().split('T')[0]}
                         className="mt-1 w-full border p-2 rounded"
                       />
                     </div>
@@ -1118,7 +1144,19 @@ export default function AdminDashboard({
                         placeholder="Enter number"
                       />
                       {activeCR && (
-                        <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
+                        <div className="text-xs mt-1">
+                          <div className="text-gray-500">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
+                          {activeCR.submittedCount < activeCR.targetCount && (
+                            <div className="text-red-600 font-medium mt-1">
+                              Need to submit {activeCR.targetCount - activeCR.submittedCount} more {activeCR.targetCount - activeCR.submittedCount === 1 ? 'work' : 'works'}
+                            </div>
+                          )}
+                          {activeCR.submittedCount >= activeCR.targetCount && (
+                            <div className="text-green-600 font-medium mt-1">
+                              ✓ All works submitted successfully
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </>
