@@ -1183,8 +1183,16 @@ export default function AdminDashboard({
                       <div>
                         <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No <span className="text-red-500">*</span></label>
                         <input 
+                          type="text"
                           value={wardNo} 
-                          onChange={(e) => setWardNo(e.target.value)} 
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Only allow numbers and maximum 3 digits
+                            if (value === '' || /^\d{1,3}$/.test(value)) {
+                              setWardNo(value);
+                            }
+                          }} 
+                          maxLength={3}
                           className="w-full border border-gray-300 p-2 rounded bg-white" 
                           placeholder="Enter ward number"
                         />
@@ -1288,7 +1296,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Upload work Image</label>
+                  <label className="block text-sm text-gray-600">Upload work Image (.jpg, .png, etc.)</label>
                   {workImage && (
                     <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
                       <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
@@ -1308,13 +1316,23 @@ export default function AdminDashboard({
                     type="file" 
                     accept="image/*" 
                     ref={workImageInputRef}
-                    onChange={(e) => setWorkImage(e.target.files?.[0] || null)} 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && !file.type.startsWith('image/')) {
+                        setFormError("Work Image must be an image file.");
+                        e.target.value = ''; // Clear the input
+                        setWorkImage(null);
+                        return;
+                      }
+                      setWorkImage(file);
+                      setFormError(""); // Clear any previous errors
+                    }} 
                     className="mt-1 w-full border p-2 rounded" 
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Detailed Estimation Report</label>
+                  <label className="block text-sm text-gray-600">Detailed Estimation Report (.pdf)</label>
                   {detailedReport && (
                     <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
                       <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
@@ -1335,9 +1353,19 @@ export default function AdminDashboard({
                   <input 
                     key={`detailedReport-${fileInputKey}`}
                     type="file" 
-                    accept=".pdf,image/*" 
+                    accept=".pdf,application/pdf" 
                     ref={detailedReportInputRef}
-                    onChange={(e) => setDetailedReport(e.target.files?.[0] || null)} 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Detailed Estimation Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setDetailedReport(null);
+                        return;
+                      }
+                      setDetailedReport(file);
+                      setFormError(""); // Clear any previous errors
+                    }} 
                     className="mt-1 w-full border p-2 rounded" 
                   />
                 </div>
@@ -1354,12 +1382,42 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className="block text-sm text-gray-600">Committee Report <span className="text-red-500">*</span></label>
-                  <input type="file" onChange={(e) => setCommitteeFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-sm text-gray-600">Committee Report (.pdf) <span className="text-red-500">*</span></label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,application/pdf" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Committee Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setCommitteeFile(null);
+                        return;
+                      }
+                      setCommitteeFile(file);
+                      setFormError(""); // Clear any previous errors
+                    }} 
+                    className="mt-1 w-full border p-2 rounded" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600">Council Resolution Report <span className="text-red-500">*</span></label>
-                  <input type="file" onChange={(e) => setCouncilFile(e.target.files?.[0] || null)} className="mt-1 w-full border p-2 rounded" />
+                  <label className="block text-sm text-gray-600">Council Resolution Report (.pdf) <span className="text-red-500">*</span></label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,application/pdf" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                        setFormError("Council Resolution Report must be a PDF file.");
+                        e.target.value = ''; // Clear the input
+                        setCouncilFile(null);
+                        return;
+                      }
+                      setCouncilFile(file);
+                      setFormError(""); // Clear any previous errors
+                    }} 
+                    className="mt-1 w-full border p-2 rounded" 
+                  />
                 </div>
               </div>
 
