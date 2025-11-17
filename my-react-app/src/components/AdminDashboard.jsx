@@ -246,6 +246,7 @@ export default function AdminDashboard({
   const [wardNo, setWardNo] = useState("");
   const [latlong, setLatlong] = useState("");
   const [estimatedCost, setEstimatedCost] = useState("");
+  const [costError, setCostError] = useState("");
   const [prioritization, setPrioritization] = useState("");
 
   // CR related
@@ -285,6 +286,14 @@ export default function AdminDashboard({
   const isSelectionReady = selection.year && selection.installment && selection.grantType && selection.program;
   const showProgramForm = isSelectionReady && selection.grantType === "Untied Grant" && (selection.program === "RADP" || selection.program === "ADP");
   const remainingBudget = Math.max(0, TOTAL_BUDGET - totalSubmittedCost);
+
+  // Calculate total cost of current submissions in this CR
+  const calculateCurrentCRTotal = useMemo(() => {
+    if (!activeCR) return 0;
+    return submissions.reduce((total, sub) => {
+      return total + (sub.crNumber === activeCR.crNumber ? (Number(sub.cost) || 0) : 0);
+    }, 0);
+  }, [submissions, activeCR]);
 
   useEffect(() => {
     // If CR selected with valid numberOfWorks and no activeCR, create it
@@ -385,20 +394,27 @@ export default function AdminDashboard({
   // When submitting a proposal
   function handleSubmitProposal() {
     setFormError("");
+    setCostError("");
+    
     if (!isSelectionReady) {
       setFormError("Please choose Year, Installment, Grant Type and Program.");
       return;
     }
-    if (!workType || !proposalName || !area || !locality || !wardNo || !estimatedCost || !prioritization) {
-      setFormError("Please fill all required proposal fields.");
+    
+    const requiredFields = { workType, proposalName, area, locality, wardNo, estimatedCost, prioritization };
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value)
+      .map(([key]) => key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()));
+      
+    if (missingFields.length > 0) {
+      setFormError(`Please fill all required fields: ${missingFields.join(', ')}`);
       return;
     }
-    // If CR selected and activeCR exists and has a targetCount, ensure we don't exceed target
-    if (crStatus === "CR" && activeCR) {
-      if (activeCR.submittedCount >= activeCR.targetCount) {
-        setFormError("CR target already completed; please reset CR or start a new cycle.");
-        return;
-      }
+    
+    const submissionCost = Number(estimatedCost);
+    if (submissionCost > remainingBudget) {
+      setCostError(`Amount exceeds remaining budget of ₹${remainingBudget.toLocaleString('en-IN')}`);
+      return;
     }
 
     const newSub = {
@@ -754,7 +770,7 @@ export default function AdminDashboard({
   
     setForwardedSubmissions((fs) => [...forwarded, ...fs]);
   
-    // ✅ CLEAR ALL FORM DATA (but keep form visible)
+    // CLEAR ALL FORM DATA (but keep form visible)
     // IMPORTANT: Clear in correct order to prevent useEffect from repopulating
     setSubmissions([]);
     setSelection({ year: "", installment: "", grantType: "", program: "" });
@@ -783,7 +799,7 @@ export default function AdminDashboard({
     alert("Forwarded successfully!");
     
     // Set banner message
-    setSuccessMsg("✅ Successfully Forwarded to Commissioner!");
+    setSuccessMsg("Forwarded to Commissioner!");
   
     // Clear message after 5 seconds
     setTimeout(() => setSuccessMsg(""), 5000);
@@ -798,11 +814,11 @@ export default function AdminDashboard({
   const [isMenuOpen, setIsMenuOpen] = useState(true);
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "reports", label: "Reports", icon: "📄" },
-    { id: "gos", label: "GO's", icon: "📋" },
-    { id: "circular", label: "Circular & Proceedings", icon: "📢" },
-    { id: "guidelines", label: "Guidelines", icon: "📐" },
+    { id: "dashboard", label: "Dashboard", icon: "" },
+    { id: "reports", label: "Reports", icon: "" },
+    { id: "gos", label: "GO's", icon: "" },
+    { id: "circular", label: "Circular & Proceedings", icon: "" },
+    { id: "guidelines", label: "Guidelines", icon: "" },
   ];
 
   return (
@@ -944,6 +960,9 @@ export default function AdminDashboard({
           {selection.grantType && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.grantType}</div>}
           {selection.program && <div className="px-3 py-1 rounded-full bg-gray-100 text-sm">{selection.program}</div>}
         </div>
+
+        {/* Create New ADP Heading */}
+        <h2 className="text-xl font-bold mb-4 text-gray-800">Create New ADP</h2>
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow p-6 border mb-6">
@@ -1197,8 +1216,38 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-600">Estimated Cost</label>
-                  <input type="number" value={estimatedCost} onChange={(e) => setEstimatedCost(e.target.value)} className="mt-1 w-full border p-2 rounded" />
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm text-gray-600">Estimated Cost (₹) <span className="text-red-500">*</span></label>
+                    <span className="text-xs text-gray-500">
+                      {activeCR ? (
+                        <>Remaining (CR {activeCR.crNumber}): ₹{(remainingBudget - calculateCurrentCRTotal).toLocaleString('en-IN')}</>
+                      ) : (
+                        <>Remaining: ₹{remainingBudget.toLocaleString('en-IN')}</>
+                      )}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    value={estimatedCost}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = Number(value) || 0;
+                      const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
+                      const remainingForCR = remainingBudget - currentCRTotal;
+                      
+                      setEstimatedCost(value);
+                      
+                      if (numValue > remainingForCR) {
+                        setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
+                      } else {
+                        setCostError('');
+                      }
+                    }}
+                    min="0"
+                    className={`mt-1 w-full border p-2 rounded ${costError ? 'border-red-500' : ''}`}
+                    placeholder="Enter amount"
+                  />
+                  {costError && <p className="mt-1 text-sm text-red-600">{costError}</p>}
                 </div>
 
                 <div>
