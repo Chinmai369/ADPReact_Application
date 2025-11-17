@@ -282,10 +282,36 @@ export default function AdminDashboard({
   // Key to force file input reset
   const [fileInputKey, setFileInputKey] = useState(0);
 
+  // Helper function to get date range from selected year (e.g., "2021-22" -> min: "2021-01-01", max: "2022-12-31")
+  const getDateRangeFromYear = (yearString) => {
+    if (!yearString) return { min: undefined, max: undefined };
+    
+    // Extract years from format like "2021-22"
+    const parts = yearString.split('-');
+    if (parts.length !== 2) return { min: undefined, max: undefined };
+    
+    const startYear = parseInt(parts[0], 10);
+    const endYear = parseInt('20' + parts[1], 10); // "22" -> 2022
+    
+    if (isNaN(startYear) || isNaN(endYear)) return { min: undefined, max: undefined };
+    
+    const minDate = `${startYear}-01-01`;
+    const maxDate = `${endYear}-12-31`;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Ensure max doesn't exceed today's date
+    const finalMax = maxDate > today ? today : maxDate;
+    
+    return { min: minDate, max: finalMax };
+  };
+
   // Derived states
   const isSelectionReady = selection.year && selection.installment && selection.grantType && selection.program;
   const showProgramForm = isSelectionReady && selection.grantType === "Untied Grant" && (selection.program === "RADP" || selection.program === "ADP");
   const remainingBudget = Math.max(0, TOTAL_BUDGET - totalSubmittedCost);
+  
+  // Get date range for CR Date based on selected year
+  const crDateRange = getDateRangeFromYear(selection.year);
 
   // Calculate total cost of current submissions in this CR
   const calculateCurrentCRTotal = useMemo(() => {
@@ -723,7 +749,14 @@ export default function AdminDashboard({
         return;
       }
       if (totalSubmissions < reqCount) {
-        alert(`Please submit ${reqCount - totalSubmissions} more work(s) before forwarding.`);
+        const remaining = reqCount - totalSubmissions;
+        const message = `Cannot forward to Commissioner!\n\n` +
+          `Required Number of Works: ${reqCount}\n` +
+          `Currently Submitted: ${totalSubmissions}\n` +
+          `You need to submit ${remaining} more work(s) before forwarding.\n\n` +
+          `Please complete all ${reqCount} work(s) and then try forwarding again.`;
+        alert(message);
+        setFormError(`You need to submit ${remaining} more work(s) before forwarding. Required: ${reqCount}, Submitted: ${totalSubmissions}`);
         return;
       }
       if (!committeeFile || !councilFile) {
@@ -1147,7 +1180,8 @@ export default function AdminDashboard({
                         value={crDate}
                         onChange={(e) => setCrDate(e.target.value)}
                         disabled={submissions.length > 0}
-                        max={new Date().toISOString().split('T')[0]}
+                        min={crDateRange.min}
+                        max={crDateRange.max}
                         className="mt-1 w-full border p-2 rounded"
                       />
                     </div>
@@ -1472,11 +1506,26 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-4">
+              <div className="flex flex-col items-end gap-2 mt-4">
+                {numberOfWorks && (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) && (
+                  <div className="text-sm text-orange-600 font-medium">
+                    Progress: {submissions.length + (isEditing ? 1 : 0)} / {numberOfWorks} works submitted
+                    {Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0)) > 0 && (
+                      <span className="ml-2 text-red-600">
+                        ({Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0))} more needed)
+                      </span>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={handleForwardToCommissioner}
                   disabled={!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile}
                   className={`px-4 py-2 rounded ${(!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile) ? "bg-gray-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                  title={!numberOfWorks ? "Please enter Number of Works" : 
+                         (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) ? 
+                         `You need to submit ${Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0))} more work(s) before forwarding` :
+                         !committeeFile || !councilFile ? "Please upload committee and council files" : 
+                         "Ready to forward"}
                 >
                   Forward to Commissioner
                 </button>
