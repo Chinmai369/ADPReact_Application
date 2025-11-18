@@ -444,7 +444,7 @@ export default function AdminDashboard({
     }
 
     const newSub = {
-      id: Date.now() + Math.random(),
+      id: `sub-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // More unique ID
       sector: workType,
       proposal: proposalName,
       locality: locality,
@@ -533,17 +533,25 @@ export default function AdminDashboard({
   const groupedSubmissions = useMemo(() => {
     const groups = {};
     submissions.forEach((s, idx) => {
-      if (!groups[s.sector]) groups[s.sector] = [];
-      // Use a unique key combining id and index to ensure uniqueness
-      groups[s.sector].push({ ...s, __idx: idx, __uniqueKey: `${s.id || idx}-${idx}` });
+      const sector = s.sector || 'Uncategorized';
+      if (!groups[sector]) groups[sector] = [];
+      // Use a unique key combining id and index to ensure uniqueness (don't use Date.now() in useMemo)
+      const uniqueKey = `${s.id}-idx-${idx}`;
+      groups[sector].push({ ...s, __idx: idx, __uniqueKey: uniqueKey, __sector: sector });
     });
     console.log("📊 Grouped submissions:", {
       totalSubmissions: submissions.length,
       groups: Object.keys(groups).map(sector => ({
         sector,
         count: groups[sector].length,
-        items: groups[sector].map(item => ({ id: item.id, proposal: item.proposal }))
-      }))
+        items: groups[sector].map((item, i) => ({ 
+          idx: i,
+          id: item.id, 
+          proposal: item.proposal, 
+          uniqueKey: item.__uniqueKey 
+        }))
+      })),
+      allItems: Object.values(groups).flat().map(item => ({ id: item.id, proposal: item.proposal, sector: item.sector }))
     });
     return groups;
   }, [submissions]);
@@ -815,11 +823,14 @@ export default function AdminDashboard({
       
       // Convert all File objects to Base64 data URLs before forwarding
       const forwarded = await Promise.all(
-        submissionsToForward.map(async (s) => {
+        submissionsToForward.map(async (s, index) => {
           try {
+            // Generate unique ID with higher precision to avoid collisions
+            // Use index to ensure uniqueness even if Date.now() is the same
+            const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`;
             const converted = {
               ...s,
-              id: Date.now() + Math.random(),
+              id: uniqueId,
               status: "Pending Review",
               forwardedDate: now,
               remarks: "",
@@ -852,9 +863,15 @@ export default function AdminDashboard({
       console.log("📤 Admin: Updating forwardedSubmissions state...");
       
       // Update the shared state via prop
+      // Add new submissions at the END so they're considered "most recent" when reducing
       setForwardedSubmissions((fs) => {
-        const updated = [...forwarded, ...fs];
-        console.log("📤 Admin: State update callback - current count:", fs?.length || 0, "new count:", updated.length);
+        const updated = [...fs, ...forwarded]; // Existing first, then new (newest at end)
+        console.log("📤 Admin: State update callback:", {
+          previousCount: fs?.length || 0,
+          newSubmissions: forwarded.length,
+          totalAfterAdd: updated.length,
+          newSubmissionIds: forwarded.map(f => ({ id: f.id, proposal: f.proposal?.substring(0, 30) || 'N/A' }))
+        });
         return updated;
       });
       
@@ -1154,402 +1171,449 @@ export default function AdminDashboard({
 
             {/* RADP/ADP Form */}
             <div className="bg-white rounded-xl shadow p-6 border">
-              <div className="text-sm font-medium mb-4">{selection.program} Details</div>
+              <div className="text-lg font-semibold mb-6 text-gray-800">{selection.program} Details</div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600">CR Status</label>
-                  <div className="flex gap-4 mt-2">
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="crStatus"
-                        checked={crStatus === "CR"}
-                        onChange={() => setCrStatus("CR")}
-                      />
-                      <span>CR</span>
-                    </label>
-                    <label className="inline-flex items-center gap-2">
-                      <input type="radio" name="crStatus" checked={crStatus === "IA"} onChange={() => setCrStatus("IA")} />
-                      <span>In anticipation</span>
-                    </label>
+              {/* Section 1: CR Information */}
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">CR Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">CR Status <span className="text-red-500">*</span></label>
+                    <div className="flex gap-6">
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="crStatus"
+                          checked={crStatus === "CR"}
+                          onChange={() => setCrStatus("CR")}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">CR</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="crStatus" 
+                          checked={crStatus === "IA"} 
+                          onChange={() => setCrStatus("IA")}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">In anticipation</span>
+                      </label>
+                    </div>
                   </div>
+
+                  {crStatus === "CR" && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">CR Number <span className="text-red-500">*</span></label>
+                        <input
+                          value={crNumber}
+                          onChange={(e) => setCrNumber(e.target.value)}
+                          disabled={submissions.length > 0}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          placeholder="Enter CR number"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">CR Date <span className="text-red-500">*</span></label>
+                        <input
+                          type="date"
+                          value={crDate}
+                          onChange={(e) => setCrDate(e.target.value)}
+                          disabled={submissions.length > 0}
+                          min={crDateRange.min}
+                          max={crDateRange.max}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Number of Works <span className="text-red-500">*</span></label>
+                        <input
+                          type="text"
+                          value={numberOfWorks}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d+$/.test(value)) {
+                              setNumberOfWorks(value);
+                            }
+                          }}
+                          disabled={submissions.length > 0}
+                          className={`w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                          placeholder="Enter number of works"
+                        />
+                        {activeCR && (
+                          <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
+              </div>
 
-                {crStatus === "CR" && (
-                  <>
-                    <div>
-                      <label className="block text-sm text-gray-600">CR Number <span className="text-red-500">*</span></label>
-                      <input
-                        value={crNumber}
-                        onChange={(e) => setCrNumber(e.target.value)}
-                        disabled={submissions.length > 0}
-                        className="mt-1 w-full border p-2 rounded"
-                      />
-                    </div>
+              {/* Section 2: Work Details */}
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Work Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Name of the Sector <span className="text-red-500">*</span></label>
+                    <select 
+                      value={workType} 
+                      onChange={(e) => setWorkType(e.target.value)} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select type of work</option>
+                      <option>SWM/LQM</option>
+                      <option>Water Supply</option>
+                      <option>UGD Drains</option>
+                      <option>CC Drains</option>
+                      <option>CC Roads</option>
+                      <option>BT Roads</option>
+                      <option>Construction of Slaughter Houses</option>
+                      <option>Development of Parks</option>
+                      <option>Protection of Open Spaces</option>
+                      <option>Burial grounds & Crematoriums</option>
+                      <option>Repairs to Municipal Schools</option>
+                      <option>Urban Health Clinics</option>
+                      <option>Greenery</option>
+                      <option>Street Lighting</option>
+                      <option>CC Charges</option>
+                      <option>EESL Dues</option>
+                      <option>ABC & ARV Activities</option>
+                      <option>Solar Panels</option>
+                      <option>CB</option>
+                      <option>IEC</option>
+                    </select>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-600">CR Date <span className="text-red-500">*</span></label>
-                      <input
-                        type="date"
-                        value={crDate}
-                        onChange={(e) => setCrDate(e.target.value)}
-                        disabled={submissions.length > 0}
-                        min={crDateRange.min}
-                        max={crDateRange.max}
-                        className="mt-1 w-full border p-2 rounded"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Name of the work <span className="text-red-500">*</span></label>
+                    <input
+                      value={proposalName}
+                      onChange={(e) => setProposalName(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter name of the work"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-600">Number of Works <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        value={numberOfWorks}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Only allow numbers
-                          if (value === '' || /^\d+$/.test(value)) {
-                            setNumberOfWorks(value);
-                          }
-                        }}
-                        disabled={submissions.length > 0}
-                        className={`mt-1 w-full border p-2 rounded ${submittedCount < Number(numberOfWorks || 0) && numberOfWorks ? "border-red-500 bg-red-50" : ""}`}
-                        placeholder="Enter number"
-                      />
-                      {activeCR && (
-                        <div className="text-xs text-gray-500 mt-1">Active CR: {activeCR.submittedCount}/{activeCR.targetCount} submitted</div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <label className="block text-sm text-gray-600">Name of the Sector <span className="text-red-500">*</span></label>
-                  <select value={workType} onChange={(e) => setWorkType(e.target.value)} className="mt-1 w-full border p-2 rounded">
-                    <option value="">Select type of work</option>
-                    <option>SWM/LQM</option>
-                    <option>Water Supply</option>
-                    <option>UGD Drains</option>
-                    <option>CC Drains</option>
-                    <option>CC Roads</option>
-                    <option>BT Roads</option>
-                    <option>Construction of Slaughter Houses</option>
-                    <option>Development of Parks</option>
-                    <option>Protection of Open Spaces</option>
-                    <option>Burial grounds & Crematoriums</option>
-                    <option>Repairs to Municipal Schools</option>
-                    <option>Urban Health Clinics</option>
-                    <option>Greenery</option>
-                    <option>Street Lighting</option>
-                    <option>CC Charges</option>
-                    <option>EESL Dues</option>
-                    <option>ABC & ARV Activities</option>
-                    <option>Solar Panels</option>
-                    <option>CB</option>
-                    <option>IEC</option>
-
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-600 mb-2">Name of the work <span className="text-red-500">*</span></label>
-                  <input
-                    value={proposalName}
-                    onChange={(e) => setProposalName(e.target.value)}
-                    className="w-full border p-2 rounded mb-3"
-                    placeholder="Enter name of the work"
-                  />
-                  <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Location Details <span className="text-red-500">*</span></label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">1. Area <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Area</label>
                         <input 
                           value={area} 
                           onChange={(e) => setArea(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
                           placeholder="Enter area"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">2. Locality <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Locality</label>
                         <input 
                           value={locality} 
                           onChange={(e) => setLocality(e.target.value)} 
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
                           placeholder="Enter locality"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1 font-medium">3. Ward No <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Ward No</label>
                         <input 
                           type="text"
                           value={wardNo} 
                           onChange={(e) => {
                             const value = e.target.value;
-                            // Only allow numbers and maximum 3 digits
                             if (value === '' || /^\d{1,3}$/.test(value)) {
                               setWardNo(value);
                             }
                           }} 
                           maxLength={3}
-                          className="w-full border border-gray-300 p-2 rounded bg-white" 
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
                           placeholder="Enter ward number"
                         />
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm text-gray-600">Latitude/Longitude or Google Maps URL <span className="text-red-500">*</span></label>
-                  <div className="mt-1 relative">
-                    {latlong && formatLatlongUrl(latlong) ? (
-                      <div 
-                        className="w-full border p-2 rounded bg-white min-h-[3rem] flex items-center cursor-pointer hover:bg-blue-50"
-                        onClick={() => window.open(formatLatlongUrl(latlong), '_blank', 'noopener,noreferrer')}
-                      >
-                        <a 
-                          href={formatLatlongUrl(latlong)}
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-blue-600 hover:underline flex-1"
-                          onClick={(e) => e.stopPropagation()}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Latitude/Longitude or Google Maps URL <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      {latlong && formatLatlongUrl(latlong) ? (
+                        <div 
+                          className="w-full border border-gray-300 rounded-md p-3 bg-white min-h-[3rem] flex items-center cursor-pointer hover:bg-blue-50 transition-colors"
+                          onClick={() => window.open(formatLatlongUrl(latlong), '_blank', 'noopener,noreferrer')}
                         >
-                          {latlong}
-                        </a>
-                        <span className="text-xs text-gray-500 ml-2">(Click to open in Google Maps)</span>
-                      </div>
-                    ) : (
-                      <textarea 
-                        value={latlong} 
-                        onChange={(e) => setLatlong(e.target.value)} 
-                        className="w-full border p-2 rounded" 
-                        placeholder="Enter coordinates (e.g., 17.3850, 78.4867) or Google Maps URL (e.g., https://maps.google.com/...)"
-                        rows={2}
-                      />
-                    )}
-                    {latlong && formatLatlongUrl(latlong) && (
-                      <button
-                        onClick={() => setLatlong("")}
-                        className="absolute top-2 right-2 text-xs text-gray-500 hover:text-gray-700"
-                        title="Clear and edit"
-                      >
-                        ✕ Edit
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center">
-                    <label className="block text-sm text-gray-600">Estimated Cost (₹) <span className="text-red-500">*</span></label>
-                    <span className="text-xs text-gray-500">
-                      {activeCR ? (
-                        <>Remaining (CR {activeCR.crNumber}): ₹{(remainingBudget - calculateCurrentCRTotal).toLocaleString('en-IN')}</>
-                      ) : (
-                        <>Remaining: ₹{remainingBudget.toLocaleString('en-IN')}</>
-                      )}
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={estimatedCost}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Only allow numbers
-                      if (value === '' || /^\d+$/.test(value)) {
-                        const numValue = Number(value) || 0;
-                        const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
-                        const remainingForCR = remainingBudget - currentCRTotal;
-                        
-                        setEstimatedCost(value);
-                        
-                        if (numValue > remainingForCR) {
-                          setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
-                        } else {
-                          setCostError('');
-                        }
-                      }
-                    }}
-                    className={`mt-1 w-full border p-2 rounded ${costError ? 'border-red-500' : ''}`}
-                    placeholder="Enter amount"
-                  />
-                  {costError && <p className="mt-1 text-sm text-red-600">{costError}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Prioritization <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
-                    value={prioritization} 
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Only allow numbers
-                      if (value === '' || /^\d+$/.test(value)) {
-                        setPrioritization(value);
-                      }
-                    }} 
-                    className="mt-1 w-full border p-2 rounded" 
-                    placeholder="Enter priority number"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Upload work Image (.jpg, .png, etc.) <span className="text-red-500">*</span></label>
-                  {workImage && (
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                      <span className="text-green-700">✓ File selected: {workImage.name || "Image"}</span>
-                      {workImage instanceof File && (
-                        <div className="mt-2">
-                          <img 
-                            src={URL.createObjectURL(workImage)} 
-                            alt="Preview" 
-                            className="max-w-full h-32 object-contain rounded border"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <input 
-                    key={`workImage-${fileInputKey}`}
-                    type="file" 
-                    accept="image/*" 
-                    ref={workImageInputRef}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (file && !file.type.startsWith('image/')) {
-                        setFormError("Work Image must be an image file.");
-                        e.target.value = ''; // Clear the input
-                        setWorkImage(null);
-                        return;
-                      }
-                      setWorkImage(file);
-                      setFormError(""); // Clear any previous errors
-                    }} 
-                    className="mt-1 w-full border p-2 rounded" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600">Detailed Estimation Report (.pdf) <span className="text-red-500">*</span></label>
-                  {detailedReport && (
-                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                      <span className="text-green-700">✓ File selected: {detailedReport.name || "Report"}</span>
-                      {detailedReport instanceof File && (
-                        <div className="mt-2">
                           <a 
-                            href={URL.createObjectURL(detailedReport)} 
+                            href={formatLatlongUrl(latlong)}
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline flex-1 text-sm"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            View Report
+                            {latlong}
                           </a>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setLatlong(""); }}
+                            className="text-xs text-gray-500 hover:text-gray-700 ml-2 px-2 py-1"
+                            title="Clear"
+                          >
+                            ✕
+                          </button>
                         </div>
+                      ) : (
+                        <textarea 
+                          value={latlong} 
+                          onChange={(e) => setLatlong(e.target.value)} 
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" 
+                          placeholder="Enter coordinates (e.g., 17.3850, 78.4867) or Google Maps URL"
+                          rows={2}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Financial & Priority */}
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Financial & Priority</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Cost (₹) <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={estimatedCost}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || /^\d+$/.test(value)) {
+                          const numValue = Number(value) || 0;
+                          const currentCRTotal = activeCR ? calculateCurrentCRTotal : 0;
+                          const remainingForCR = remainingBudget - currentCRTotal;
+                          
+                          setEstimatedCost(value);
+                          
+                          if (numValue > remainingForCR) {
+                            setCostError(`Amount exceeds remaining budget of ₹${remainingForCR.toLocaleString('en-IN')}${activeCR ? ' for this CR' : ''}`);
+                          } else {
+                            setCostError('');
+                          }
+                        }
+                      }}
+                      className={`w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${costError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      placeholder="Enter amount"
+                    />
+                    {costError && <p className="mt-1 text-xs text-red-600">{costError}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prioritization <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      value={prioritization} 
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || /^\d+$/.test(value)) {
+                          setPrioritization(value);
+                        }
+                      }} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="Enter priority number"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: File Uploads */}
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">File Uploads</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Upload work Image (.jpg, .png, etc.) <span className="text-red-500">*</span></label>
+                    {workImage && (
+                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-xs">
+                        <span className="text-green-700 font-medium">✓ File selected: {workImage.name || "Image"}</span>
+                        {workImage instanceof File && (
+                          <div className="mt-2">
+                            <img 
+                              src={URL.createObjectURL(workImage)} 
+                              alt="Preview" 
+                              className="max-w-full h-32 object-contain rounded border border-gray-300"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <input 
+                      key={`workImage-${fileInputKey}`}
+                      type="file" 
+                      accept="image/*" 
+                      ref={workImageInputRef}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && !file.type.startsWith('image/')) {
+                          setFormError("Work Image must be an image file.");
+                          e.target.value = '';
+                          setWorkImage(null);
+                          return;
+                        }
+                        setWorkImage(file);
+                        setFormError("");
+                      }} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Detailed Estimation Report (.pdf) <span className="text-red-500">*</span></label>
+                    {detailedReport && (
+                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-xs">
+                        <span className="text-green-700 font-medium">✓ File selected: {detailedReport.name || "Report"}</span>
+                        {detailedReport instanceof File && (
+                          <div className="mt-2">
+                            <a 
+                              href={URL.createObjectURL(detailedReport)} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-blue-600 hover:underline text-sm"
+                            >
+                              View Report
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <input 
+                      key={`detailedReport-${fileInputKey}`}
+                      type="file" 
+                      accept=".pdf,application/pdf" 
+                      ref={detailedReportInputRef}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                          setFormError("Detailed Estimation Report must be a PDF file.");
+                          e.target.value = '';
+                          setDetailedReport(null);
+                          return;
+                        }
+                        setDetailedReport(file);
+                        setFormError("");
+                      }} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {formError && <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">{formError}</div>}
+
+              <div className="flex justify-center gap-3 mt-6">
+                <button 
+                  onClick={handleSubmitProposal} 
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Submit Work
+                </button>
+              </div>
+
+              {/* Section 5: Committee & Council Reports */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">Committee & Council Reports</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Committee Report (.pdf) <span className="text-red-500">*</span></label>
+                    {committeeFile && (
+                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-xs">
+                        <span className="text-green-700 font-medium">✓ File selected: {committeeFile.name || "Report"}</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      accept=".pdf,application/pdf" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                          setFormError("Committee Report must be a PDF file.");
+                          e.target.value = '';
+                          setCommitteeFile(null);
+                          return;
+                        }
+                        setCommitteeFile(file);
+                        setFormError("");
+                      }} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Council Resolution Report (.pdf) <span className="text-red-500">*</span></label>
+                    {councilFile && (
+                      <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-xs">
+                        <span className="text-green-700 font-medium">✓ File selected: {councilFile.name || "Report"}</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      accept=".pdf,application/pdf" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                          setFormError("Council Resolution Report must be a PDF file.");
+                          e.target.value = '';
+                          setCouncilFile(null);
+                          return;
+                        }
+                        setCouncilFile(file);
+                        setFormError("");
+                      }} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Forward Section */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="flex flex-col items-end gap-3">
+                  {numberOfWorks && (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) && (
+                    <div className="w-full md:w-auto text-sm text-orange-600 font-medium bg-orange-50 border border-orange-200 rounded-md px-4 py-2">
+                      Progress: {submissions.length + (isEditing ? 1 : 0)} / {numberOfWorks} works submitted
+                      {Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0)) > 0 && (
+                        <span className="ml-2 text-red-600 font-semibold">
+                          ({Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0))} more needed)
+                        </span>
                       )}
                     </div>
                   )}
-                  <input 
-                    key={`detailedReport-${fileInputKey}`}
-                    type="file" 
-                    accept=".pdf,application/pdf" 
-                    ref={detailedReportInputRef}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                        setFormError("Detailed Estimation Report must be a PDF file.");
-                        e.target.value = ''; // Clear the input
-                        setDetailedReport(null);
-                        return;
-                      }
-                      setDetailedReport(file);
-                      setFormError(""); // Clear any previous errors
-                    }} 
-                    className="mt-1 w-full border p-2 rounded" 
-                  />
+                  <button
+                    onClick={handleForwardToCommissioner}
+                    disabled={!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile}
+                    className={`px-6 py-2.5 rounded-md font-medium transition-colors focus:ring-2 focus:ring-offset-2 ${
+                      (!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile) 
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                        : "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500"
+                    }`}
+                    title={!numberOfWorks ? "Please enter Number of Works" : 
+                           (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) ? 
+                           `You need to submit ${Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0))} more work(s) before forwarding` :
+                           !committeeFile || !councilFile ? "Please upload committee and council files" : 
+                           "Ready to forward"}
+                  >
+                    Forward to Commissioner
+                  </button>
                 </div>
-              </div>
-
-              {formError && <div className="mt-4 text-red-600">{formError}</div>}
-
-              <div className="flex justify-center gap-3 mt-4">
-                <button onClick={handleSubmitProposal} className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
-              </div>
-
-              <div className="border-b border-gray-300 mt-4"></div>
-
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm text-gray-600">Committee Report (.pdf) <span className="text-red-500">*</span></label>
-                  <input 
-                    type="file" 
-                    accept=".pdf,application/pdf" 
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                        setFormError("Committee Report must be a PDF file.");
-                        e.target.value = ''; // Clear the input
-                        setCommitteeFile(null);
-                        return;
-                      }
-                      setCommitteeFile(file);
-                      setFormError(""); // Clear any previous errors
-                    }} 
-                    className="mt-1 w-full border p-2 rounded" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Council Resolution Report (.pdf) <span className="text-red-500">*</span></label>
-                  <input 
-                    type="file" 
-                    accept=".pdf,application/pdf" 
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-                        setFormError("Council Resolution Report must be a PDF file.");
-                        e.target.value = ''; // Clear the input
-                        setCouncilFile(null);
-                        return;
-                      }
-                      setCouncilFile(file);
-                      setFormError(""); // Clear any previous errors
-                    }} 
-                    className="mt-1 w-full border p-2 rounded" 
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col items-end gap-2 mt-4">
-                {numberOfWorks && (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) && (
-                  <div className="text-sm text-orange-600 font-medium">
-                    Progress: {submissions.length + (isEditing ? 1 : 0)} / {numberOfWorks} works submitted
-                    {Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0)) > 0 && (
-                      <span className="ml-2 text-red-600">
-                        ({Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0))} more needed)
-                      </span>
-                    )}
-                  </div>
-                )}
-                <button
-                  onClick={handleForwardToCommissioner}
-                  disabled={!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile}
-                  className={`px-4 py-2 rounded ${(!numberOfWorks || (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) || !committeeFile || !councilFile) ? "bg-gray-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"}`}
-                  title={!numberOfWorks ? "Please enter Number of Works" : 
-                         (submissions.length + (isEditing ? 1 : 0)) < Number(numberOfWorks) ? 
-                         `You need to submit ${Number(numberOfWorks) - (submissions.length + (isEditing ? 1 : 0))} more work(s) before forwarding` :
-                         !committeeFile || !councilFile ? "Please upload committee and council files" : 
-                         "Ready to forward"}
-                >
-                  Forward to Commissioner
-                </button>
               </div>
             </div>
 
             {/* Post submit + signatures + merged table */}
             <div className="bg-white rounded-xl shadow p-6 border">
-              <div className="text-sm font-medium mb-3">Signatures and Submission</div>
+              <div className="flex justify-between items-center mb-3">
+                <div className="text-sm font-medium">Signatures and Submission</div>
+                <div className="text-xs text-gray-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                  Total Submissions: <span className="font-bold text-blue-700">{submissions.length}</span>
+                </div>
+              </div>
 
               <div className="overflow-auto max-h-96">
                 <table className="w-full border-collapse text-xs border border-gray-300">
@@ -1577,27 +1641,51 @@ export default function AdminDashboard({
                     ) : (
                       groupedKeys.map((sector, groupIdx) => {
                         const group = groupedSubmissions[sector];
+                        console.log(`📋 Rendering group "${sector}":`, {
+                          groupIdx,
+                          groupSize: group.length,
+                          items: group.map((item, i) => ({ 
+                            idx: i, 
+                            id: item.id, 
+                            proposal: item.proposal,
+                            uniqueKey: item.__uniqueKey 
+                          }))
+                        });
                         return group.map((item, idxInGroup) => {
                           const isFirst = idxInGroup === 0;
                           // Use unique key to ensure React properly renders all rows
-                          const uniqueKey = item.__uniqueKey || `sector-${sector}-idx-${item.__idx}-${idxInGroup}`;
+                          const uniqueKey = item.__uniqueKey || `sector-${sector}-idx-${item.__idx}-${idxInGroup}-${item.id}`;
+                          console.log(`  📄 Rendering row ${idxInGroup + 1}/${group.length} for sector "${sector}":`, {
+                            uniqueKey,
+                            id: item.id,
+                            proposal: item.proposal,
+                            isFirst
+                          });
                           return (
-                            <tr key={uniqueKey} className="border-b border-gray-300 align-top hover:bg-gray-50">
+                            <tr key={uniqueKey} className={`border-b border-gray-300 align-top hover:bg-gray-50 ${!isFirst ? 'bg-gray-50/30' : ''}`}>
                               {/* S.No and sector only on first row of group */}
                               <td className="p-2 align-top border-r border-gray-300">
-                                {isFirst ? groupIdx + 1 : null}
+                                {isFirst ? (
+                                  <span className="font-semibold">{groupIdx + 1}</span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">↳</span>
+                                )}
                               </td>
                               <td className="p-2 align-top border-r border-gray-300">
-                                {isFirst ? (item.crNumber || "-") : null}
+                                {isFirst ? (item.crNumber || "-") : <span className="text-gray-400">-</span>}
                               </td>
                               <td className="p-2 align-top border-r border-gray-300">
-                                {isFirst ? (item.crDate || "-") : null}
+                                {isFirst ? (item.crDate || "-") : <span className="text-gray-400">-</span>}
                               </td>
                               <td className="p-2 align-top border-r border-gray-300">
-                                {isFirst ? sector : null}
+                                {isFirst ? (
+                                  <span className="font-medium">{sector}</span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">↳ {sector}</span>
+                                )}
                               </td>
                               <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={item.proposal}>
-                                {item.proposal}
+                                <span className="font-medium">{item.proposal}</span>
                               </td>
                               <td className="p-2 align-top text-right border-r border-gray-300">{fmtINR(Math.round(item.cost))}</td>
                               <td className="p-2 align-top max-w-xs truncate border-r border-gray-300" title={formatLocality(item)}>

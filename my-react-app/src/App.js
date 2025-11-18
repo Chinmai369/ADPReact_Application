@@ -70,8 +70,14 @@ function App() {
 
   // Save to localStorage whenever forwardedSubmissions changes
   useEffect(() => {
+    // Skip save if forwardedSubmissions is empty (initial load)
+    if (forwardedSubmissions.length === 0) {
+      return;
+    }
+    
     const saveToLocalStorage = async () => {
       try {
+        console.log("💾 App.js: Starting save to localStorage with", forwardedSubmissions.length, "submissions");
         // Helper function to convert File to base64 data URL (async)
         const fileToDataUrl = (file) => {
           return new Promise((resolve) => {
@@ -112,59 +118,117 @@ function App() {
         );
 
         // Check size before saving - localStorage typically has 5-10MB limit
-        const MAX_STORAGE_SIZE = 5 * 1024 * 1024; // 5MB limit (increased to accommodate large files)
+        // Most modern browsers support 10MB, so we use 9.5MB to be safe while maximizing capacity
+        const MAX_STORAGE_SIZE = 9.5 * 1024 * 1024; // 9.5MB limit (increased to accommodate multiple large files)
         let jsonString = JSON.stringify(serializable);
         let dataSize = new Blob([jsonString]).size;
         
         console.log("💾 Attempting to save:", {
           submissions: serializable.length,
           dataSize: `${(dataSize / 1024 / 1024).toFixed(2)} MB`,
-          maxSize: `${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(2)} MB`
+          maxSize: `${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(2)} MB`,
+          submissionIds: serializable.map(s => ({ id: s.id, proposal: s.proposal?.substring(0, 30) || 'N/A' }))
         });
 
         // If data is too large, keep only the most recent submissions
         if (dataSize > MAX_STORAGE_SIZE) {
-          console.warn("⚠️ Data size exceeds limit, keeping only most recent submissions");
+          console.warn("⚠️ Data size exceeds limit, attempting to keep as many submissions as possible");
           
-          // Sort by ID (which includes timestamp) descending to get most recent first
-          serializable.sort((a, b) => (b.id || 0) - (a.id || 0));
+          // Sort by forwardedDate (if available) or ID ASCENDING to get oldest first
+          // This way newest submissions (at the end) are kept when we reduce
+          serializable.sort((a, b) => {
+            // Prefer forwardedDate for accurate chronological sorting
+            if (a.forwardedDate && b.forwardedDate) {
+              const dateA = new Date(a.forwardedDate).getTime();
+              const dateB = new Date(b.forwardedDate).getTime();
+              // If same date, use ID to break tie (keep newer IDs)
+              if (dateA === dateB) {
+                return String(a.id || '').localeCompare(String(b.id || ''));
+              }
+              return dateA - dateB; // Ascending: oldest first
+            }
+            // Fallback to ID for submissions without forwardedDate
+            // Sort ascending so newer IDs (which are larger) come last
+            return String(a.id || '').localeCompare(String(b.id || ''));
+          });
           
           // Try to keep as many as possible while staying under limit
+          // Since array is sorted ascending (oldest first), we want to keep from the END (newest)
+          // Process from END to beginning
           let kept = [];
           
-          for (let sub of serializable) {
-            // Check size if we add this submission
-            const testArray = [...kept, sub];
+          console.log(`🔄 Processing ${serializable.length} submissions (oldest→newest), trying to fit as many as possible under ${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(2)} MB`);
+          console.log(`   Will keep MOST RECENT submissions (from end of sorted array)`);
+          
+          // Iterate from END (newest) to BEGINNING (oldest)
+          for (let i = serializable.length - 1; i >= 0; i--) {
+            const sub = serializable[i]; // Processing from newest to oldest
+            const singleSubSize = new Blob([JSON.stringify([sub])]).size;
+            
+            // Check size if we add this submission (add to beginning to maintain newest-first order)
+            const testArray = [sub, ...kept];
             const testJson = JSON.stringify(testArray);
             const testSize = new Blob([testJson]).size;
             
+            const isNewest = (i === serializable.length - 1);
+            console.log(`  📦 Submission ${serializable.length - i}/${serializable.length} (${isNewest ? 'NEWEST' : 'older'}):`, {
+              proposal: sub.proposal?.substring(0, 30) || 'N/A',
+              singleSize: `${(singleSubSize / 1024 / 1024).toFixed(2)} MB`,
+              currentKept: kept.length,
+              totalSizeIfAdded: `${(testSize / 1024 / 1024).toFixed(2)} MB`,
+              wouldFit: testSize <= MAX_STORAGE_SIZE
+            });
+            
             if (testSize <= MAX_STORAGE_SIZE) {
-              kept.push(sub);
+              kept.unshift(sub); // Add to beginning to maintain newest-first
             } else {
-              // If even a single submission exceeds the limit, we still keep it
-              // (better to have 1 submission than 0)
+              // If we already have some submissions, stop here
+              // Otherwise, if even a single submission exceeds the limit, we still keep it
               if (kept.length === 0) {
-                console.warn("⚠️ Single submission exceeds limit, but keeping it anyway");
-                kept.push(sub);
+                console.warn(`⚠️ Single submission (${(singleSubSize / 1024 / 1024).toFixed(2)} MB) exceeds limit (${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(2)} MB), but keeping it anyway`);
+                kept.unshift(sub);
+              } else {
+                console.warn(`⚠️ Stopping at ${kept.length} most recent submissions. Next submission would make total ${(testSize / 1024 / 1024).toFixed(2)} MB (exceeds ${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(2)} MB)`);
               }
               break;
             }
           }
           
-          // Reverse to maintain chronological order (oldest first)
+          // Reverse to chronological order (oldest first) for display
           kept.reverse();
           
-          serializable = kept;
-          jsonString = JSON.stringify(serializable);
-          dataSize = new Blob([jsonString]).size;
+          const originalCount = serializable.length;
           
-          console.warn(`⚠️ Reduced to ${kept.length} most recent submissions (${(dataSize / 1024 / 1024).toFixed(2)} MB)`);
-          
-          // Update state to match what we're saving (to prevent repeated size issues)
-          // Use setTimeout to avoid updating state during render
-          setTimeout(() => {
-            setForwardedSubmissions(serializable);
-          }, 0);
+          // Only update state if we actually reduced something AND we're keeping fewer than what was there
+          // This prevents overwriting newly added submissions
+          if (kept.length < originalCount) {
+            serializable = kept;
+            jsonString = JSON.stringify(serializable);
+            dataSize = new Blob([jsonString]).size;
+            
+            console.warn(`⚠️ Reduced from ${originalCount} to ${kept.length} most recent submissions (${(dataSize / 1024 / 1024).toFixed(2)} MB)`);
+            
+            // Update state to match what we're saving (to prevent repeated size issues)
+            // Use setTimeout to avoid updating state during render
+            // Only update if we actually removed submissions
+            setTimeout(() => {
+              setForwardedSubmissions((current) => {
+                // Double-check: only update if current state has the same or more items
+                // This prevents race conditions where new submissions were added
+                if (current.length >= originalCount) {
+                  console.log(`⚠️ State updated: reducing from ${current.length} to ${kept.length} submissions`);
+                  return kept;
+                } else {
+                  console.log(`⚠️ Skipping state update: current count (${current.length}) is less than original (${originalCount}), meaning new submissions were added`);
+                  return current; // Keep current state if new items were added
+                }
+              });
+            }, 100); // Small delay to let any pending updates finish
+          } else {
+            console.warn(`⚠️ Size exceeds limit but couldn't reduce (all submissions are too large). Keeping all ${originalCount} submissions.`);
+            // If we can't reduce, we'll still try to save what we have
+            // The browser might throw QuotaExceededError, which is handled below
+          }
         }
 
         // Save data with current timestamp
@@ -175,7 +239,8 @@ function App() {
           count: serializable.length,
           size: `${(dataSize / 1024 / 1024).toFixed(2)} MB`,
           timestamp: new Date().toLocaleString(),
-          expiresAt: new Date(Date.now() + STORAGE_DURATION).toLocaleString()
+          expiresAt: new Date(Date.now() + STORAGE_DURATION).toLocaleString(),
+          averageSizePerSubmission: serializable.length > 0 ? `${((dataSize / serializable.length) / 1024 / 1024).toFixed(2)} MB` : '0 MB'
         });
       } catch (error) {
         if (error.name === 'QuotaExceededError') {
